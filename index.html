@@ -1,66 +1,13 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>Наш план</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <main class="app">
-    <header>
-      <div>
-        <div class="eyebrow">Telegram Mini App</div>
-        <h1>Наш план</h1>
-      </div>
-      <button id="themeBtn" class="icon-btn">☀️</button>
-    </header>
-
-    <section class="card profile">
-      <div class="avatar" id="avatar">Е</div>
-      <div>
-        <div class="muted">Ты</div>
-        <strong id="userName">Гость</strong>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="section-title">
-        <h2>Пространство</h2>
-        <span class="badge" id="memberCount">1 участник</span>
-      </div>
-      <div id="members" class="members"></div>
-      <button id="inviteBtn" class="primary">＋ Пригласить Таню</button>
-    </section>
-
-    <section class="card">
-      <div class="section-title">
-        <h2>Сегодня</h2>
-        <button id="addBtn" class="small-btn">＋ Событие</button>
-      </div>
-      <div id="events" class="events"></div>
-      <div id="empty" class="empty">Пока нет событий</div>
-    </section>
-
-    <section class="card note">
-      <strong>Как работает эта первая версия</strong>
-      <p>Данные пока сохраняются только на этом устройстве. Кнопка приглашения создаёт ссылку для Telegram. Общую синхронизацию между тобой и Таней подключим следующим этапом.</p>
-    </section>
-  </main>
-
-  <dialog id="eventDialog">
-    <form method="dialog" id="eventForm">
-      <h2>Новое событие</h2>
-      <label>Название<input id="eventTitle" required placeholder="Например, купить продукты"></label>
-      <label>Время<input id="eventTime" type="time"></label>
-      <div class="dialog-actions">
-        <button value="cancel" class="secondary">Отмена</button>
-        <button value="default" class="primary">Добавить</button>
-      </div>
-    </form>
-  </dialog>
-
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="app.js"></script>
-</body>
-</html>
+<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>parplan</title><link rel="stylesheet" href="style.css"></head><body>
+<div class="app">
+<header class="top"><div><div class="eyebrow">TELEGRAM MINI APP</div><h1 id="spaceTitle">Мои планы</h1></div><button id="settingsBtn" class="iconBtn">⚙</button></header>
+<section id="calendarView"><section class="card compact"><div class="sectionHead"><button id="prevMonth" class="roundBtn">‹</button><h2 id="monthTitle"></h2><button id="nextMonth" class="roundBtn">›</button></div><div class="weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div id="calendar" class="calendar"></div></section>
+<section class="card"><div class="sectionHead"><div><div class="muted">Выбранный день</div><h2 id="selectedDateTitle"></h2></div><button id="addEventBtn" class="smallPrimary">＋ Событие</button></div><div id="overlapWarning" class="warning hidden"></div><div id="eventsList" class="list"></div><div id="eventsEmpty" class="empty">На этот день событий нет</div></section></section>
+<section id="tasksView" class="hidden"><section class="card"><div class="sectionHead"><h2>Дела</h2><button id="addTaskBtn" class="smallPrimary">＋ Добавить</button></div><div id="tasksList" class="list"></div><div id="tasksEmpty" class="empty">Дел пока нет</div></section></section>
+<section id="shoppingView" class="hidden"><section class="card"><div class="sectionHead"><h2>Покупки</h2><button id="addShoppingBtn" class="smallPrimary">＋ Добавить</button></div><div id="shoppingList" class="list"></div><div id="shoppingEmpty" class="empty">Список покупок пуст</div></section></section>
+<section id="peopleView" class="hidden"><section class="card"><div class="sectionHead"><h2>Участники</h2><span id="memberCount" class="badge"></span></div><div id="membersList" class="membersList"></div><button id="inviteBtn" class="primary">＋ Пригласить участника</button><p class="hint">Имя каждого участника должно подставляться автоматически из его Telegram после реального присоединения.</p></section></section>
+</div>
+<nav class="bottomNav"><button class="navItem active" data-view="calendarView">📅<span>Календарь</span></button><button class="navItem" data-view="tasksView">✓<span>Дела</span></button><button class="navItem" data-view="shoppingView">🛒<span>Покупки</span></button><button class="navItem" data-view="peopleView">👥<span>Люди</span></button></nav>
+<dialog id="eventDialog"><form id="eventForm"><div class="dialogHead"><h2>Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div><label>Название<input id="eventTitle" required></label><label>Дата<input id="eventDate" type="date" required></label><div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div><div class="fieldTitle">Кому относится событие</div><div id="eventMembers" class="checkList"></div><button class="primary" type="submit">Сохранить</button></form></dialog>
+<dialog id="simpleDialog"><form id="simpleForm"><div class="dialogHead"><h2 id="simpleTitle">Добавить</h2><button type="button" class="closeBtn" data-close="simpleDialog">×</button></div><label>Название<input id="simpleInput" required></label><button class="primary" type="submit">Добавить</button></form></dialog>
+<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="app.js"></script></body></html>

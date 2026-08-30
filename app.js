@@ -1,106 +1,17 @@
-const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-}
-
-const STORAGE_KEY = "shared_planner_v1";
-const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"members":[],"events":[]}');
-
-function currentUser() {
-  const u = tg?.initDataUnsafe?.user;
-  return u ? {
-    id: String(u.id),
-    name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "Пользователь",
-    short: u.first_name || "П"
-  } : {id:"local-user", name:"Евгений", short:"Е"};
-}
-
-const me = currentUser();
-
-if (!state.members.length) {
-  state.members.push({id: me.id, name: me.name, color:"#3b82f6"});
-}
-if (!state.members.some(x => x.id === me.id)) {
-  state.members.unshift({id: me.id, name: me.name, color:"#3b82f6"});
-}
-
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  render();
-}
-
-function render() {
-  document.getElementById("userName").textContent = me.name;
-  document.getElementById("avatar").textContent = me.short[0].toUpperCase();
-  document.getElementById("memberCount").textContent =
-    `${state.members.length} ${state.members.length === 1 ? "участник" : "участника"}`;
-
-  const members = document.getElementById("members");
-  members.innerHTML = state.members.map(m =>
-    `<div class="member"><span class="dot" style="background:${m.color}"></span>${escapeHtml(m.name)}</div>`
-  ).join("");
-
-  const events = document.getElementById("events");
-  const today = new Date().toISOString().slice(0,10);
-  const todayEvents = state.events.filter(e => e.date === today)
-    .sort((a,b) => (a.time||"99:99").localeCompare(b.time||"99:99"));
-
-  events.innerHTML = todayEvents.map(e => `
-    <div class="event">
-      <div class="event-time">${e.time || "—"}</div>
-      <div>
-        <div class="event-title">${escapeHtml(e.title)}</div>
-        <div class="event-author">${escapeHtml(e.authorName)}</div>
-      </div>
-    </div>
-  `).join("");
-
-  document.getElementById("empty").style.display = todayEvents.length ? "none" : "block";
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-  }[c]));
-}
-
-document.getElementById("addBtn").onclick = () => {
-  document.getElementById("eventDialog").showModal();
-};
-
-document.getElementById("eventForm").onsubmit = (e) => {
-  e.preventDefault();
-  const title = document.getElementById("eventTitle").value.trim();
-  const time = document.getElementById("eventTime").value;
-  if (!title) return;
-  state.events.push({
-    id: crypto.randomUUID(),
-    title,
-    time,
-    date: new Date().toISOString().slice(0,10),
-    authorId: me.id,
-    authorName: me.name
-  });
-  document.getElementById("eventDialog").close();
-  document.getElementById("eventTitle").value = "";
-  document.getElementById("eventTime").value = "";
-  save();
-};
-
-document.getElementById("inviteBtn").onclick = async () => {
-  // For the first prototype we create a simple Telegram share link.
-  // Real group joining/synchronization will be added after the basic Mini App works.
-  const botUsername = tg?.initDataUnsafe?.receiver?.username || "YOUR_BOT_USERNAME";
-  const link = `https://t.me/${botUsername}?startapp=invite`;
-  const text = `Таня, присоединяйся к нашему планировщику: ${link}`;
-
-  if (tg?.openTelegramLink) {
-    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
-  } else {
-    await navigator.clipboard?.writeText(link);
-    alert("Ссылка скопирована: " + link);
-  }
-};
-
-render();
+const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand()}const KEY="parplan_v2";const COLORS=["#3b82f6","#8b5cf6","#f59e0b","#22a06b","#e05263","#14b8a6"];
+function tgUser(){const u=tg?.initDataUnsafe?.user;if(u)return{id:String(u.id),name:[u.first_name,u.last_name].filter(Boolean).join(" ")||u.username||"Пользователь",colorIndex:0};return{id:"local-user",name:"Пользователь",colorIndex:0}}
+const me=tgUser();let state=JSON.parse(localStorage.getItem(KEY)||"null")||{spaceName:"Мои планы",members:[me],events:[],tasks:[],shopping:[]};if(!state.members.some(m=>m.id===me.id))state.members.unshift(me);
+let viewMonth=new Date(),selectedDate=new Date().toISOString().slice(0,10),simpleMode=null;const color=m=>COLORS[(m?.colorIndex||0)%COLORS.length];const member=id=>state.members.find(m=>m.id===id);
+function save(){localStorage.setItem(KEY,JSON.stringify(state));renderAll()}function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}function fmt(iso){return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric"}).format(new Date(iso+"T12:00:00"))}
+function renderCalendar(){document.getElementById("monthTitle").textContent=new Intl.DateTimeFormat("ru-RU",{month:"long",year:"numeric"}).format(viewMonth);const y=viewMonth.getFullYear(),m=viewMonth.getMonth(),first=new Date(y,m,1),offset=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),prev=new Date(y,m,0).getDate(),cal=document.getElementById("calendar");cal.innerHTML="";for(let i=0;i<42;i++){let d,dt,other=false;if(i<offset){d=prev-offset+i+1;dt=new Date(y,m-1,d);other=true}else if(i>=offset+days){d=i-(offset+days)+1;dt=new Date(y,m+1,d);other=true}else{d=i-offset+1;dt=new Date(y,m,d)}const iso=dt.toISOString().slice(0,10),ev=state.events.filter(e=>e.date===iso),ids=[...new Set(ev.flatMap(e=>e.memberIds))].slice(0,4),b=document.createElement("button");b.className="day"+(other?" other":"")+(iso===selectedDate?" selected":"")+(iso===new Date().toISOString().slice(0,10)?" today":"");b.innerHTML=`<span>${d}</span><span class="dots">${ids.map(id=>`<i class="dot" style="background:${color(member(id))}"></i>`).join("")}</span>`;b.onclick=()=>{selectedDate=iso;viewMonth=new Date(dt.getFullYear(),dt.getMonth(),1);renderAll()};cal.appendChild(b)}}
+function overlap(arr){let n=0;for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++)if(arr[i].memberIds.some(id=>arr[j].memberIds.includes(id))&&arr[i].start<arr[j].end&&arr[j].start<arr[i].end)n++;return n}
+function renderEvents(){document.getElementById("selectedDateTitle").textContent=fmt(selectedDate);const arr=state.events.filter(e=>e.date===selectedDate).sort((a,b)=>a.start.localeCompare(b.start)),list=document.getElementById("eventsList");list.innerHTML=arr.map(e=>`<div class="event"><div class="eventTime">${e.start}<br><span class="muted">${e.end}</span></div><div class="eventBody"><div class="eventTitle">${esc(e.title)}</div><div class="chips">${e.memberIds.map(id=>member(id)?.name).filter(Boolean).map(n=>`<span class="chip">${esc(n)}</span>`).join("")}</div></div><button class="deleteBtn" data-event="${e.id}">×</button></div>`).join("");document.getElementById("eventsEmpty").style.display=arr.length?"none":"block";const n=overlap(arr),w=document.getElementById("overlapWarning");if(n){w.textContent=`⚠️ Есть пересекающиеся события: ${n}`;w.classList.remove("hidden")}else w.classList.add("hidden");document.querySelectorAll("[data-event]").forEach(b=>b.onclick=()=>{state.events=state.events.filter(e=>e.id!==b.dataset.event);save()})}
+function renderMembers(){document.getElementById("memberCount").textContent=state.members.length+" участн.";document.getElementById("membersList").innerHTML=state.members.map(m=>`<div class="memberRow"><div class="memberAvatar" style="background:${color(m)}">${esc(m.name[0].toUpperCase())}</div><div><strong>${esc(m.name)}</strong><div class="muted">${m.id===me.id?"Вы":"Участник"}</div></div></div>`).join("")}
+function renderRows(type,listId,emptyId){const a=state[type],l=document.getElementById(listId);l.innerHTML=a.map(x=>`<div class="rowItem ${x.done?"done":""}"><input type="checkbox" ${x.done?"checked":""} data-toggle="${type}:${x.id}"><div class="rowText">${esc(x.title)}</div><button class="deleteBtn" data-delete="${type}:${x.id}">×</button></div>`).join("");document.getElementById(emptyId).style.display=a.length?"none":"block"}
+function renderAll(){document.getElementById("spaceTitle").textContent=state.spaceName;renderCalendar();renderEvents();renderMembers();renderRows("tasks","tasksList","tasksEmpty");renderRows("shopping","shoppingList","shoppingEmpty");document.querySelectorAll("[data-toggle]").forEach(x=>x.onchange=()=>{const[t,id]=x.dataset.toggle.split(":");state[t].find(a=>a.id===id).done=x.checked;save()});document.querySelectorAll("[data-delete]").forEach(x=>x.onclick=()=>{const[t,id]=x.dataset.delete.split(":");state[t]=state[t].filter(a=>a.id!==id);save()})}
+document.getElementById("prevMonth").onclick=()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-1,1);renderCalendar()};document.getElementById("nextMonth").onclick=()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,1);renderCalendar()};
+document.querySelectorAll(".navItem").forEach(b=>b.onclick=()=>{document.querySelectorAll(".navItem").forEach(x=>x.classList.remove("active"));document.querySelectorAll("#calendarView,#tasksView,#shoppingView,#peopleView").forEach(x=>x.classList.add("hidden"));b.classList.add("active");document.getElementById(b.dataset.view).classList.remove("hidden")});
+document.getElementById("addEventBtn").onclick=()=>{eventTitle.value="";eventDate.value=selectedDate;eventStart.value="";eventEnd.value="";eventMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${m.id===me.id?"checked":""}>${esc(m.name)}</label>`).join("");eventDialog.showModal()};
+document.getElementById("eventForm").onsubmit=e=>{e.preventDefault();const ids=[...document.querySelectorAll("#eventMembers input:checked")].map(x=>x.value);if(!ids.length)return;const title=eventTitle.value.trim(),date=eventDate.value,start=eventStart.value,end=eventEnd.value;if(!title||end<=start){alert("Проверь название и время события.");return}state.events.push({id:crypto.randomUUID(),title,date,start,end,memberIds:ids});selectedDate=date;viewMonth=new Date(date+"T12:00:00");eventDialog.close();save()};
+function openSimple(mode,title){simpleMode=mode;simpleTitle.textContent=title;simpleInput.value="";simpleDialog.showModal()}addTaskBtn.onclick=()=>openSimple("tasks","Новое дело");addShoppingBtn.onclick=()=>openSimple("shopping","Новая покупка");simpleForm.onsubmit=e=>{e.preventDefault();const title=simpleInput.value.trim();if(title){state[simpleMode].push({id:crypto.randomUUID(),title,done:false});simpleDialog.close();save()}};
+inviteBtn.onclick=()=>{const link="https://t.me/par_planer_bot?startapp=invite";const text="Присоединяйся к моему пространству в parplan: "+link;if(tg?.openTelegramLink)tg.openTelegramLink("https://t.me/share/url?url="+encodeURIComponent(link)+"&text="+encodeURIComponent(text));else navigator.clipboard?.writeText(link).then(()=>alert("Ссылка скопирована."))};document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).close());settingsBtn.onclick=()=>{const n=prompt("Название пространства:",state.spaceName);if(n?.trim()){state.spaceName=n.trim();save()}};renderAll();
