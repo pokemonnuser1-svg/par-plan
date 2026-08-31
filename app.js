@@ -28,24 +28,10 @@ function fmt(d){return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"lon
 function me(){return state?.me?.id;}
 function member(id){return state?.members.find(x=>x.id===id);}
 const LOCAL_COLORS_KEY="parplan_member_colors_v1";
-function customColors(){
-  try{return JSON.parse(localStorage.getItem(LOCAL_COLORS_KEY)||"{}")||{};}catch{return {};}
-}
-function color(m){
-  if(!m)return COLORS[0];
-  const saved=customColors()[m.id];
-  return saved||COLORS[(m?.color_index||0)%COLORS.length];
-}
-function setMemberColor(id,value){
-  const map=customColors();
-  map[id]=value;
-  localStorage.setItem(LOCAL_COLORS_KEY,JSON.stringify(map));
-}
-function resetMemberColor(id){
-  const map=customColors();
-  delete map[id];
-  localStorage.setItem(LOCAL_COLORS_KEY,JSON.stringify(map));
-}
+function customColors(){try{return JSON.parse(localStorage.getItem(LOCAL_COLORS_KEY)||"{}")||{};}catch{return {};}}
+function color(m){if(!m)return COLORS[0];return customColors()[m.id]||COLORS[(m?.color_index||0)%COLORS.length];}
+function setMemberColor(id,value){const map=customColors();map[id]=value;localStorage.setItem(LOCAL_COLORS_KEY,JSON.stringify(map));}
+function resetMemberColor(id){const map=customColors();delete map[id];localStorage.setItem(LOCAL_COLORS_KEY,JSON.stringify(map));}
 function status(t){syncStatus.textContent=t;}
 
 async function api(action,data={}){
@@ -344,11 +330,10 @@ function renderMembers(){
 function filtered(type){
   const f=filters[type];
   return state[type].filter(x=>{
-    const joinedIds=x.participants.filter(p=>p.status==="joined").map(p=>p.user_id);
+    const joined=x.participants.filter(p=>p.status==="joined").map(p=>p.user_id);
     const isMine=x.created_by===me();
     const isOther=x.created_by!==me();
-    const isCommon=joinedIds.includes(me()) && joinedIds.some(id=>id!==me());
-
+    const isCommon=joined.includes(me())&&joined.some(id=>id!==me());
     if(f==="all")return true;
     if(f==="mine")return isMine;
     if(f==="other")return isOther;
@@ -360,7 +345,7 @@ function filtered(type){
 function renderRows(type,list,empty,filterBox){
   filterBox.innerHTML=[["all","Все"],["mine","Моё"],["other","Других"],["common","Общее"]].map(([v,t])=>`<button class="filterBtn ${filters[type]===v?"active":""}" data-filter="${type}|${v}">${t}</button>`).join("");
   const a=filtered(type);
-  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${new Date(x.due_at).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
+  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatTaskDateTime(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
   empty.style.display=a.length?"none":"block";
 }
 
@@ -460,6 +445,15 @@ simpleForm.onsubmit=async e=>{
     payload.due_date=dueDate||null;
     payload.due_time=dueTime||null;
     payload.reminder_minutes=reminder===""?null:Number(reminder);
+    if(dueDate&&dueTime){
+      const local=new Date(`${dueDate}T${dueTime}:00`);
+      const offset=-local.getTimezoneOffset();
+      const sign=offset>=0?"+":"-";
+      const abs=Math.abs(offset);
+      const oh=String(Math.floor(abs/60)).padStart(2,"0");
+      const om=String(abs%60).padStart(2,"0");
+      payload.due_at=`${dueDate}T${dueTime}:00${sign}${oh}:${om}`;
+    }else payload.due_at=null;
   }
   await act(simpleMode==="tasks"?"create_task":"create_shopping",payload);
   simpleDialog.close();
@@ -477,35 +471,15 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getE
 function renderColorSettings(){
   const box=document.getElementById("colorSettingsList");
   if(!box)return;
-  box.innerHTML=state.members.map(m=>{
-    const fallback=COLORS[(m.color_index||0)%COLORS.length];
-    return `<div class="colorSettingRow">
-      <div class="memberMini"><span class="memberAvatar" style="background:${color(m)}">${esc((m.display_name||"?")[0])}</span><span>${esc(m.display_name)}${m.id===me()?" · Вы":""}</span></div>
-      <div class="colorControls">
-        <input type="color" value="${esc(color(m))}" data-member-color="${m.id}">
-        <button type="button" class="textBtn" data-reset-color="${m.id}" title="Вернуть исходный цвет">↺</button>
-      </div>
-    </div>`;
-  }).join("");
-
-  box.querySelectorAll("[data-member-color]").forEach(inp=>inp.oninput=()=>{
-    setMemberColor(inp.dataset.memberColor,inp.value);
-    renderColorSettings();
-    renderAll();
-  });
-  box.querySelectorAll("[data-reset-color]").forEach(btn=>btn.onclick=()=>{
-    resetMemberColor(btn.dataset.resetColor);
-    renderColorSettings();
-    renderAll();
-  });
+  box.innerHTML=state.members.map(m=>`<div class="colorSettingRow"><div class="memberMini"><span class="memberAvatar" style="background:${color(m)}">${esc((m.display_name||"?")[0])}</span><span>${esc(m.display_name)}${m.id===me()?" · Вы":""}</span></div><div class="colorControls"><input type="color" value="${color(m)}" data-member-color="${m.id}"><button type="button" class="textBtn" data-reset-color="${m.id}">↺</button></div></div>`).join("");
+  box.querySelectorAll("[data-member-color]").forEach(inp=>inp.oninput=()=>{setMemberColor(inp.dataset.memberColor,inp.value);renderColorSettings();renderAll();});
+  box.querySelectorAll("[data-reset-color]").forEach(btn=>btn.onclick=()=>{resetMemberColor(btn.dataset.resetColor);renderColorSettings();renderAll();});
 }
-
 settingsBtn.onclick=()=>{
   document.getElementById("spaceNameInput").value=state.space.name||"";
   renderColorSettings();
   document.getElementById("settingsDialog").showModal();
 };
-
 document.getElementById("settingsForm").onsubmit=async e=>{
   e.preventDefault();
   const n=document.getElementById("spaceNameInput").value.trim();

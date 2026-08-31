@@ -38,10 +38,9 @@ label{display:block;font-size:12px;color:var(--muted);margin:13px 0}input{displa
 .taskSchedule input,.taskSchedule select{width:100%;box-sizing:border-box;margin-top:4px}
 .dueMeta{margin-top:5px;font-size:.82rem;opacity:.85}
 
-
-/* Настройки цветов — локальная персональная кастомизация */
+/* V6 local member color settings */
 .colorSettingsList{display:grid;gap:10px;margin:10px 0 16px}
-.colorSettingRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px}
+.colorSettingRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px}
 .memberMini{display:flex;align-items:center;gap:9px;min-width:0}
 .memberMini .memberAvatar{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;color:#fff;flex:none}
 .colorControls{display:flex;align-items:center;gap:8px}
