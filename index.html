@@ -1,10 +1,104 @@
-<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>parplan</title><link rel="stylesheet" href="style.css"></head><body>
-<div class="app"><header class="top"><div><div class="eyebrow">TELEGRAM MINI APP</div><h1 id="spaceTitle">Мои планы</h1><div id="syncStatus" class="muted">Подключение…</div></div><button id="settingsBtn" class="iconBtn">⚙</button></header>
-<section id="calendarView"><section class="card compact"><div class="sectionHead"><button id="prevMonth" class="roundBtn">‹</button><h2 id="monthTitle"></h2><button id="nextMonth" class="roundBtn">›</button></div><div class="weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div id="calendar" class="calendar"></div></section><section class="card"><div class="sectionHead"><div><div class="muted">Выбранный день</div><h2 id="selectedDateTitle"></h2></div><button id="addEventBtn" class="smallPrimary">＋ Событие</button></div><div id="overlapWarning" class="warning hidden"></div><div id="eventsList" class="list"></div><div id="eventsEmpty" class="empty">На этот день событий нет</div></section></section>
-<section id="tasksView" class="hidden"><section class="card"><div class="sectionHead"><h2>Дела</h2><button id="addTaskBtn" class="smallPrimary">＋ Добавить</button></div><div id="tasksFilters" class="filters"></div><div id="tasksList" class="list"></div><div id="tasksEmpty" class="empty">Дел пока нет</div></section></section>
-<section id="shoppingView" class="hidden"><section class="card"><div class="sectionHead"><h2>Покупки</h2><button id="addShoppingBtn" class="smallPrimary">＋ Добавить</button></div><div id="shoppingFilters" class="filters"></div><div id="shoppingList" class="list"></div><div id="shoppingEmpty" class="empty">Список покупок пуст</div></section></section>
-<section id="peopleView" class="hidden"><section class="card"><div class="sectionHead"><h2>Участники</h2><span id="memberCount" class="badge"></span></div><div id="membersList" class="membersList"></div><button id="inviteBtn" class="primary">＋ Пригласить участника</button><p class="hint">После перехода по приглашению человек появится здесь автоматически. Имя берётся из Telegram.</p></section></section></div>
-<nav class="bottomNav"><button class="navItem active" data-view="calendarView">📅<span>Календарь</span></button><button class="navItem" data-view="tasksView">✓<span>Дела</span></button><button class="navItem" data-view="shoppingView">🛒<span>Покупки</span></button><button class="navItem" data-view="peopleView">👥<span>Люди</span></button></nav>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>parplan</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <div class="eyebrow">TELEGRAM MINI APP</div>
+      <h1 id="spaceTitle">Мои планы</h1>
+      <div id="syncStatus" class="muted">Подключение…</div>
+    </div>
+    <button id="settingsBtn" class="iconBtn" aria-label="Настройки">⚙</button>
+  </header>
+
+  <section id="calendarView">
+    <div class="modeSwitch">
+      <button class="modeBtn active" data-mode="plans">Планы</button>
+      <button class="modeBtn" data-mode="work">Рабочие дни</button>
+    </div>
+
+    <section class="card compact">
+      <div class="sectionHead">
+        <button id="prevMonth" class="roundBtn" aria-label="Предыдущий месяц">‹</button>
+        <h2 id="monthTitle"></h2>
+        <button id="nextMonth" class="roundBtn" aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+      <div id="calendar" class="calendar"></div>
+      <div id="workLegend" class="workLegend hidden">
+        <span><i class="legendDot mine"></i>Вы</span>
+        <span><i class="legendDot partner"></i>Партнёр</span>
+        <span><i class="legendDot overlap"></i>Совпадают</span>
+      </div>
+    </section>
+
+    <section id="plansPanel">
+      <section class="card">
+        <div class="sectionHead">
+          <div><div class="muted">Выбранный день</div><h2 id="selectedDateTitle"></h2></div>
+          <button id="addEventBtn" class="smallPrimary">＋ Событие</button>
+        </div>
+        <div id="overlapWarning" class="warning hidden"></div>
+        <div id="eventsList" class="list"></div>
+        <div id="eventsEmpty" class="empty">На этот день событий нет</div>
+      </section>
+    </section>
+
+    <section id="workPanel" class="hidden">
+      <section class="card">
+        <div class="sectionHead">
+          <div>
+            <div class="muted">Рабочий график</div>
+            <h2>Отметьте свои рабочие дни</h2>
+          </div>
+          <button id="clearWorkSelectionBtn" class="textBtn">Снять выбор</button>
+        </div>
+
+        <div class="workHint">Нажмите на день или зажмите и проведите по нескольким дням, затем выберите действие.</div>
+
+        <div id="workSelectionBar" class="workSelectionBar hidden">
+          <strong id="workSelectionCount">Выбрано: 0</strong>
+          <div class="workActions">
+            <button id="markWorkBtn" class="miniBtn workAction">Я работаю</button>
+            <button id="markWeekendBtn" class="miniBtn weekendAction">Выходной</button>
+          </div>
+        </div>
+
+        <div class="workStats">
+          <div class="statCard"><span class="statDot mine"></span><div><b>Вы</b><small id="myWorkCount">0 дней</small></div></div>
+          <div class="statCard"><span class="statDot partner"></span><div><b id="partnerWorkName">Партнёр</b><small id="partnerWorkCount">0 дней</small></div></div>
+          <div class="statCard"><span class="statDot overlap"></span><div><b>Оба работают</b><small id="overlapWorkCount">0 дней</small></div></div>
+          <div class="statCard"><span class="statDot free"></span><div><b>Общие выходные</b><small id="commonFreeCount">0 дней</small></div></div>
+        </div>
+
+        <button id="saveWorkBtn" class="primary" disabled>Сохранить изменения</button>
+        <div id="workSaveInfo" class="saveInfo">Изменений пока нет</div>
+      </section>
+    </section>
+  </section>
+
+  <section id="tasksView" class="hidden"><section class="card"><div class="sectionHead"><h2>Дела</h2><button id="addTaskBtn" class="smallPrimary">＋ Добавить</button></div><div id="tasksFilters" class="filters"></div><div id="tasksList" class="list"></div><div id="tasksEmpty" class="empty">Дел пока нет</div></section></section>
+  <section id="shoppingView" class="hidden"><section class="card"><div class="sectionHead"><h2>Покупки</h2><button id="addShoppingBtn" class="smallPrimary">＋ Добавить</button></div><div id="shoppingFilters" class="filters"></div><div id="shoppingList" class="list"></div><div id="shoppingEmpty" class="empty">Список покупок пуст</div></section></section>
+  <section id="peopleView" class="hidden"><section class="card"><div class="sectionHead"><h2>Участники</h2><span id="memberCount" class="badge"></span></div><div id="membersList" class="membersList"></div><button id="inviteBtn" class="primary">＋ Пригласить участника</button><p class="hint">После перехода по приглашению человек появится здесь автоматически. Имя берётся из Telegram.</p></section></section>
+</div>
+
+<nav class="bottomNav">
+  <button class="navItem active" data-view="calendarView">📅<span>Календарь</span></button>
+  <button class="navItem" data-view="tasksView">✓<span>Дела</span></button>
+  <button class="navItem" data-view="shoppingView">🛒<span>Покупки</span></button>
+  <button class="navItem" data-view="peopleView">👥<span>Люди</span></button>
+</nav>
+
 <dialog id="eventDialog"><form id="eventForm"><div class="dialogHead"><h2>Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div><label>Название<input id="eventTitle" required></label><label>Дата<input id="eventDate" type="date" required></label><div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div><div class="fieldTitle">Участники</div><div id="eventMembers" class="checkList"></div><button class="primary" type="submit">Сохранить</button></form></dialog>
 <dialog id="simpleDialog"><form id="simpleForm"><div class="dialogHead"><h2 id="simpleTitle">Добавить</h2><button type="button" class="closeBtn" data-close="simpleDialog">×</button></div><label>Название<input id="simpleInput" required></label><div class="fieldTitle">Кому относится</div><div id="simpleMembers" class="checkList"></div><button class="primary" type="submit">Добавить</button></form></dialog>
-<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="app.js"></script></body></html>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
