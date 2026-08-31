@@ -1,4 +1,4 @@
-const CONFIG={SUPABASE_URL:"https://ecszjvqkuymmeweyghad.supabase.co",PUBLISHABLE_KEY:"sb_publishable_QGq_2DsvJjHLLI1XDMvxcQ_28TCcFnJ",FUNCTION_NAME:"parplan-api",BOT_USERNAME:"par_planer_bot"};
+const CONFIG={SUPABASE_URL:"https://ecszjvqkuymmeweyghad.supabase.co",PUBLISHABLE_KEY:"sb_publishable_QGq_2DsvJjHLLI1XDMvxcQ_28TCcFnJ",FUNCTION_NAME:"dynamic-function",BOT_USERNAME:"par_planer_bot"};
 const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand()}
 const COLORS=["#3b82f6","#8b5cf6","#f59e0b","#22a06b","#e05263","#14b8a6"];let state=null,viewMonth=new Date(),selectedDate=localISO(new Date()),simpleMode=null;let filters={tasks:"all",shopping:"all"};let busy=false;
 function localISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
