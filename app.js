@@ -104,9 +104,10 @@ function syncWorkDraftFromServer(){
   if(!state)return;
   const {mine}=getWorkSets();
   const prefix=monthKey()+"-";
-  if(!workDirty){
+  // Не сбрасываем черновик и выделение во время фоновой синхронизации.
+  // Иначе только что выбранные, но ещё не сохранённые дни исчезают.
+  if(!workDirty && workSelection.size===0){
     workDraft=new Set([...mine].filter(d=>d.startsWith(prefix)));
-    workSelection.clear();
   }
 }
 
@@ -171,48 +172,65 @@ function renderCalendar(){
   renderWorkPanel();
 }
 
+function refreshWorkSelectionVisual(){
+  calendar.querySelectorAll("[data-date]").forEach(el=>{
+    el.classList.toggle("workSelected",workSelection.has(el.dataset.date));
+  });
+  renderWorkPanel();
+}
+
 function bindWorkPointer(btn,iso){
   btn.addEventListener("pointerdown",e=>{
     if(calendarMode!=="work")return;
     e.preventDefault();
+    try{btn.setPointerCapture(e.pointerId);}catch(_){ }
+
     pointerWork.active=true;
     pointerWork.anchor=iso;
     pointerWork.longPressed=false;
     pointerWork.moved=false;
     clearTimeout(pointerWork.timer);
+
     pointerWork.timer=setTimeout(()=>{
-      if(pointerWork.active){
-        pointerWork.longPressed=true;
-        workSelection.add(iso);
-        renderCalendar();
-      }
+      if(!pointerWork.active)return;
+      pointerWork.longPressed=true;
+      workSelection=new Set([iso]);
+      // Не перерисовываем весь календарь: пересоздание кнопки под пальцем
+      // было причиной того, что выбор сразу "слетал".
+      refreshWorkSelectionVisual();
     },320);
   });
 
   btn.addEventListener("pointermove",e=>{
-    if(calendarMode!=="work"||!pointerWork.active)return;
-    pointerWork.moved=true;
+    if(calendarMode!=="work"||!pointerWork.active||!pointerWork.longPressed)return;
     const el=document.elementFromPoint(e.clientX,e.clientY);
     const dateEl=el?.closest?.("[data-date]");
-    if(dateEl?.dataset.date&&pointerWork.longPressed){
-      workSelection=new Set(rangeDates(pointerWork.anchor,dateEl.dataset.date));
-      renderCalendar();
-    }
+    if(!dateEl?.dataset.date)return;
+    pointerWork.moved=true;
+    workSelection=new Set(rangeDates(pointerWork.anchor,dateEl.dataset.date));
+    refreshWorkSelectionVisual();
   });
 
-  btn.addEventListener("pointerup",()=>{
+  const finish=e=>{
     if(calendarMode!=="work")return;
     clearTimeout(pointerWork.timer);
     if(pointerWork.active&&!pointerWork.longPressed){
-      if(workSelection.has(iso))workSelection.delete(iso);else workSelection.add(iso);
-      renderCalendar();
+      if(workSelection.has(iso))workSelection.delete(iso);
+      else workSelection.add(iso);
+      refreshWorkSelectionVisual();
     }
     pointerWork.active=false;
-  });
+    pointerWork.anchor=null;
+    pointerWork.longPressed=false;
+    pointerWork.moved=false;
+    try{
+      if(e?.pointerId!==undefined&&btn.hasPointerCapture?.(e.pointerId))btn.releasePointerCapture(e.pointerId);
+    }catch(_){ }
+  };
 
-  btn.addEventListener("pointercancel",()=>{clearTimeout(pointerWork.timer);pointerWork.active=false;});
+  btn.addEventListener("pointerup",finish);
+  btn.addEventListener("pointercancel",finish);
 }
-
 function renderEvents(){
   selectedDateTitle.textContent=fmt(selectedDate);
   const a=state.events.filter(e=>e.event_date===selectedDate).sort((a,b)=>a.start_time.localeCompare(b.start_time));
@@ -394,6 +412,7 @@ function openSimple(mode,title){
   simpleTitle.textContent=title;
   simpleInput.value="";
   simpleMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${m.id===me()?"checked":""}>${esc(m.display_name)}</label>`).join("");
+  simpleDialog.showModal();
 }
 addTaskBtn.onclick=()=>openSimple("tasks","Новое дело");
 addShoppingBtn.onclick=()=>openSimple("shopping","Новая покупка");
