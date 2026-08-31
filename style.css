@@ -31,3 +31,9 @@ label{display:block;font-size:12px;color:var(--muted);margin:13px 0}input{displa
 
 /* Стабильный выбор рабочих дней удержанием */
 [data-date]{touch-action:none;}
+
+/* V5 notifications */
+.taskSchedule{margin:12px 0;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:14px}
+.taskSchedule label{display:block;margin:8px 0}
+.taskSchedule input,.taskSchedule select{width:100%;box-sizing:border-box;margin-top:4px}
+.dueMeta{margin-top:5px;font-size:.82rem;opacity:.85}

@@ -334,7 +334,7 @@ function filtered(type){
 function renderRows(type,list,empty,filterBox){
   filterBox.innerHTML=[["all","Все"],["mine","Моё"],["other","Других"],["common","Общее"]].map(([v,t])=>`<button class="filterBtn ${filters[type]===v?"active":""}" data-filter="${type}|${v}">${t}</button>`).join("");
   const a=filtered(type);
-  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div><div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
+  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${new Date(x.due_at).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
   empty.style.display=a.length?"none":"block";
 }
 
@@ -412,6 +412,11 @@ function openSimple(mode,title){
   simpleTitle.textContent=title;
   simpleInput.value="";
   simpleMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${m.id===me()?"checked":""}>${esc(m.display_name)}</label>`).join("");
+  const schedule=document.getElementById("taskScheduleFields");
+  schedule.classList.toggle("hidden",mode!=="tasks");
+  document.getElementById("taskDate").value=selectedDate||"";
+  document.getElementById("taskTime").value="";
+  document.getElementById("taskReminder").value="";
   simpleDialog.showModal();
 }
 addTaskBtn.onclick=()=>openSimple("tasks","Новое дело");
@@ -420,7 +425,17 @@ simpleForm.onsubmit=async e=>{
   e.preventDefault();
   const participantIds=[...document.querySelectorAll("#simpleMembers input:checked")].map(x=>x.value);
   if(!participantIds.length)return alert("Выбери участника.");
-  await act(simpleMode==="tasks"?"create_task":"create_shopping",{title:simpleInput.value.trim(),participantIds});
+  const payload={title:simpleInput.value.trim(),participantIds};
+  if(simpleMode==="tasks"){
+    const dueDate=document.getElementById("taskDate").value;
+    const dueTime=document.getElementById("taskTime").value;
+    const reminder=document.getElementById("taskReminder").value;
+    if(reminder!==""&&(!dueDate||!dueTime))return alert("Для напоминания укажи дату и время.");
+    payload.due_date=dueDate||null;
+    payload.due_time=dueTime||null;
+    payload.reminder_minutes=reminder===""?null:Number(reminder);
+  }
+  await act(simpleMode==="tasks"?"create_task":"create_shopping",payload);
   simpleDialog.close();
 };
 
