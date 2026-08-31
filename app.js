@@ -27,7 +27,25 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function fmt(d){return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric"}).format(new Date(d+"T12:00:00"));}
 function me(){return state?.me?.id;}
 function member(id){return state?.members.find(x=>x.id===id);}
-function color(m){return COLORS[(m?.color_index||0)%COLORS.length];}
+const LOCAL_COLORS_KEY="parplan_member_colors_v1";
+function customColors(){
+  try{return JSON.parse(localStorage.getItem(LOCAL_COLORS_KEY)||"{}")||{};}catch{return {};}
+}
+function color(m){
+  if(!m)return COLORS[0];
+  const saved=customColors()[m.id];
+  return saved||COLORS[(m?.color_index||0)%COLORS.length];
+}
+function setMemberColor(id,value){
+  const map=customColors();
+  map[id]=value;
+  localStorage.setItem(LOCAL_COLORS_KEY,JSON.stringify(map));
+}
+function resetMemberColor(id){
+  const map=customColors();
+  delete map[id];
+  localStorage.setItem(LOCAL_COLORS_KEY,JSON.stringify(map));
+}
 function status(t){syncStatus.textContent=t;}
 
 async function api(action,data={}){
@@ -326,8 +344,16 @@ function renderMembers(){
 function filtered(type){
   const f=filters[type];
   return state[type].filter(x=>{
-    const ids=x.participants.filter(p=>p.status==="joined").map(p=>p.user_id);
-    return f==="all"||f==="mine"&&ids.includes(me())||f==="other"&&ids.length&&!ids.includes(me())||f==="common"&&ids.length>1;
+    const joinedIds=x.participants.filter(p=>p.status==="joined").map(p=>p.user_id);
+    const isMine=x.created_by===me();
+    const isOther=x.created_by!==me();
+    const isCommon=joinedIds.includes(me()) && joinedIds.some(id=>id!==me());
+
+    if(f==="all")return true;
+    if(f==="mine")return isMine;
+    if(f==="other")return isOther;
+    if(f==="common")return isCommon;
+    return true;
   });
 }
 
@@ -448,9 +474,43 @@ inviteBtn.onclick=async()=>{
 };
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).close());
-settingsBtn.onclick=async()=>{
-  const n=prompt("Название пространства:",state.space.name);
-  if(n?.trim())await act("rename_space",{name:n.trim()});
+function renderColorSettings(){
+  const box=document.getElementById("colorSettingsList");
+  if(!box)return;
+  box.innerHTML=state.members.map(m=>{
+    const fallback=COLORS[(m.color_index||0)%COLORS.length];
+    return `<div class="colorSettingRow">
+      <div class="memberMini"><span class="memberAvatar" style="background:${color(m)}">${esc((m.display_name||"?")[0])}</span><span>${esc(m.display_name)}${m.id===me()?" · Вы":""}</span></div>
+      <div class="colorControls">
+        <input type="color" value="${esc(color(m))}" data-member-color="${m.id}">
+        <button type="button" class="textBtn" data-reset-color="${m.id}" title="Вернуть исходный цвет">↺</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  box.querySelectorAll("[data-member-color]").forEach(inp=>inp.oninput=()=>{
+    setMemberColor(inp.dataset.memberColor,inp.value);
+    renderColorSettings();
+    renderAll();
+  });
+  box.querySelectorAll("[data-reset-color]").forEach(btn=>btn.onclick=()=>{
+    resetMemberColor(btn.dataset.resetColor);
+    renderColorSettings();
+    renderAll();
+  });
+}
+
+settingsBtn.onclick=()=>{
+  document.getElementById("spaceNameInput").value=state.space.name||"";
+  renderColorSettings();
+  document.getElementById("settingsDialog").showModal();
+};
+
+document.getElementById("settingsForm").onsubmit=async e=>{
+  e.preventDefault();
+  const n=document.getElementById("spaceNameInput").value.trim();
+  if(n&&n!==state.space.name)await act("rename_space",{name:n});
+  document.getElementById("settingsDialog").close();
 };
 
 markWorkBtn.onclick=()=>applyWorkSelection(true);
