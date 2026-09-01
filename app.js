@@ -25,6 +25,7 @@ function localISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function monthKey(d=viewMonth){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
 function fmt(d){return new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",year:"numeric"}).format(new Date(d+"T12:00:00"));}
+function formatDueAt(value){const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value||"");return new Intl.DateTimeFormat("ru-RU",{timeZone:"Europe/Minsk",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);}
 function me(){return state?.me?.id;}
 function member(id){return state?.members.find(x=>x.id===id);}
 const LOCAL_COLORS_KEY="parplan_member_colors_v1";
@@ -331,13 +332,10 @@ function filtered(type){
   const f=filters[type];
   return state[type].filter(x=>{
     const joined=x.participants.filter(p=>p.status==="joined").map(p=>p.user_id);
-    const isMine=x.created_by===me();
-    const isOther=x.created_by!==me();
-    const isCommon=joined.includes(me())&&joined.some(id=>id!==me());
     if(f==="all")return true;
-    if(f==="mine")return isMine;
-    if(f==="other")return isOther;
-    if(f==="common")return isCommon;
+    if(f==="mine")return x.created_by===me();
+    if(f==="other")return x.created_by!==me();
+    if(f==="common")return joined.includes(me())&&joined.some(id=>id!==me());
     return true;
   });
 }
@@ -345,7 +343,7 @@ function filtered(type){
 function renderRows(type,list,empty,filterBox){
   filterBox.innerHTML=[["all","Все"],["mine","Моё"],["other","Других"],["common","Общее"]].map(([v,t])=>`<button class="filterBtn ${filters[type]===v?"active":""}" data-filter="${type}|${v}">${t}</button>`).join("");
   const a=filtered(type);
-  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatTaskDateTime(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
+  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatDueAt(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
   empty.style.display=a.length?"none":"block";
 }
 
@@ -450,9 +448,9 @@ simpleForm.onsubmit=async e=>{
       const offset=-local.getTimezoneOffset();
       const sign=offset>=0?"+":"-";
       const abs=Math.abs(offset);
-      const oh=String(Math.floor(abs/60)).padStart(2,"0");
-      const om=String(abs%60).padStart(2,"0");
-      payload.due_at=`${dueDate}T${dueTime}:00${sign}${oh}:${om}`;
+      const hh=String(Math.floor(abs/60)).padStart(2,"0");
+      const mm=String(abs%60).padStart(2,"0");
+      payload.due_at=`${dueDate}T${dueTime}:00${sign}${hh}:${mm}`;
     }else payload.due_at=null;
   }
   await act(simpleMode==="tasks"?"create_task":"create_shopping",payload);
@@ -469,23 +467,13 @@ inviteBtn.onclick=async()=>{
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).close());
 function renderColorSettings(){
-  const box=document.getElementById("colorSettingsList");
-  if(!box)return;
+  const box=document.getElementById("colorSettingsList");if(!box)return;
   box.innerHTML=state.members.map(m=>`<div class="colorSettingRow"><div class="memberMini"><span class="memberAvatar" style="background:${color(m)}">${esc((m.display_name||"?")[0])}</span><span>${esc(m.display_name)}${m.id===me()?" · Вы":""}</span></div><div class="colorControls"><input type="color" value="${color(m)}" data-member-color="${m.id}"><button type="button" class="textBtn" data-reset-color="${m.id}">↺</button></div></div>`).join("");
   box.querySelectorAll("[data-member-color]").forEach(inp=>inp.oninput=()=>{setMemberColor(inp.dataset.memberColor,inp.value);renderColorSettings();renderAll();});
   box.querySelectorAll("[data-reset-color]").forEach(btn=>btn.onclick=()=>{resetMemberColor(btn.dataset.resetColor);renderColorSettings();renderAll();});
 }
-settingsBtn.onclick=()=>{
-  document.getElementById("spaceNameInput").value=state.space.name||"";
-  renderColorSettings();
-  document.getElementById("settingsDialog").showModal();
-};
-document.getElementById("settingsForm").onsubmit=async e=>{
-  e.preventDefault();
-  const n=document.getElementById("spaceNameInput").value.trim();
-  if(n&&n!==state.space.name)await act("rename_space",{name:n});
-  document.getElementById("settingsDialog").close();
-};
+settingsBtn.onclick=()=>{document.getElementById("spaceNameInput").value=state.space.name||"";renderColorSettings();document.getElementById("settingsDialog").showModal();};
+document.getElementById("settingsForm").onsubmit=async e=>{e.preventDefault();const n=document.getElementById("spaceNameInput").value.trim();if(n&&n!==state.space.name)await act("rename_space",{name:n});document.getElementById("settingsDialog").close();};
 
 markWorkBtn.onclick=()=>applyWorkSelection(true);
 markWeekendBtn.onclick=()=>applyWorkSelection(false);
