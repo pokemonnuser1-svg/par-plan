@@ -1,6 +1,6 @@
 const CONFIG={
   SUPABASE_URL:"https://ecszjvqkuymmeweyghad.supabase.co",
-  PUBLISHABLE_KEY:"sb_publishable_QGq_2DsvJjHLLI1XDMvxcQ_28TCcFnJ",
+  PUBLISHABLE_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjc3pqdnFrdXltbWV3ZXlnaGFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTM1NjIsImV4cCI6MjEwMzY4OTU2Mn0.-49oo6O7hxKC1In96d2JjAx_ApnVfC-Y8H9j9MfwiNc",
   FUNCTION_NAME:"dynamic-function",
   BOT_USERNAME:"par_planer_bot"
 };
