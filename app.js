@@ -472,8 +472,28 @@ function renderColorSettings(){
   box.querySelectorAll("[data-member-color]").forEach(inp=>inp.oninput=()=>{setMemberColor(inp.dataset.memberColor,inp.value);renderColorSettings();renderAll();});
   box.querySelectorAll("[data-reset-color]").forEach(btn=>btn.onclick=()=>{resetMemberColor(btn.dataset.resetColor);renderColorSettings();renderAll();});
 }
-settingsBtn.onclick=()=>{document.getElementById("spaceNameInput").value=state.space.name||"";renderColorSettings();document.getElementById("settingsDialog").showModal();};
-document.getElementById("settingsForm").onsubmit=async e=>{e.preventDefault();const n=document.getElementById("spaceNameInput").value.trim();if(n&&n!==state.space.name)await act("rename_space",{name:n});document.getElementById("settingsDialog").close();};
+settingsBtn.onclick=()=>{
+  document.getElementById("spaceNameInput").value=state.space.name||"";
+  renderColorSettings();
+  const ns=state.notificationSettings||{notify_event:true,notify_task:true,notify_shopping:true};
+  document.getElementById("notifyEventToggle").checked=ns.notify_event!==false;
+  document.getElementById("notifyTaskToggle").checked=ns.notify_task!==false;
+  document.getElementById("notifyShoppingToggle").checked=ns.notify_shopping!==false;
+  document.getElementById("settingsDialog").showModal();
+};
+document.getElementById("settingsForm").onsubmit=async e=>{
+  e.preventDefault();
+  const n=document.getElementById("spaceNameInput").value.trim();
+  if(n&&n!==state.space.name)await act("rename_space",{name:n});
+  const notify_event=document.getElementById("notifyEventToggle").checked;
+  const notify_task=document.getElementById("notifyTaskToggle").checked;
+  const notify_shopping=document.getElementById("notifyShoppingToggle").checked;
+  const ns=state.notificationSettings||{};
+  if(ns.notify_event!==notify_event||ns.notify_task!==notify_task||ns.notify_shopping!==notify_shopping){
+    await act("save_notification_settings",{notify_event,notify_task,notify_shopping});
+  }
+  document.getElementById("settingsDialog").close();
+};
 
 markWorkBtn.onclick=()=>applyWorkSelection(true);
 markWeekendBtn.onclick=()=>applyWorkSelection(false);
