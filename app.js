@@ -1,6 +1,6 @@
 const CONFIG={
   SUPABASE_URL:"https://ecszjvqkuymmeweyghad.supabase.co",
-  PUBLISHABLE_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjc3pqdnFrdXltbWV3ZXlnaGFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMTM1NjIsImV4cCI6MjEwMzY4OTU2Mn0.-49oo6O7hxKC1In96d2JjAx_ApnVfC-Y8H9j9MfwiNc",
+  PUBLISHABLE_KEY:"sb_publishable_QGq_2DsvJjHLLI1XDMvxcQ_28TCcFnJ",
   FUNCTION_NAME:"dynamic-function",
   BOT_USERNAME:"par_planer_bot"
 };
@@ -16,6 +16,7 @@ let simpleMode=null;
 let filters={tasks:"all",shopping:"all"};
 let busy=false;
 let calendarMode="plans";
+let workViewFilter="all"; // all | mine | partner | overlap — что подсвечивать в режиме "Рабочие дни"
 let workDraft=new Set();
 let workSelection=new Set();
 let workDirty=false;
@@ -164,9 +165,11 @@ function renderCalendar(){
     }else{
       const isMine=workDraft.has(iso);
       const isPartner=partner.has(iso);
-      if(isMine&&isPartner)b.classList.add("workOverlap");
-      else if(isMine)b.classList.add("workMine");
-      else if(isPartner)b.classList.add("workPartner");
+      const showMine=isMine&&(workViewFilter==="all"||workViewFilter==="mine"||(workViewFilter==="overlap"&&isPartner));
+      const showPartner=isPartner&&(workViewFilter==="all"||workViewFilter==="partner"||(workViewFilter==="overlap"&&isMine));
+      if(showMine&&showPartner)b.classList.add("workOverlap");
+      else if(showMine)b.classList.add("workMine");
+      else if(showPartner)b.classList.add("workPartner");
       if(workSelection.has(iso))b.classList.add("workSelected");
       if(iso===localISO(new Date()))b.classList.add("today");
       b.innerHTML=`<span>${d}</span>`;
@@ -256,6 +259,7 @@ function renderWorkPanel(){
   if(!state)return;
   const workVisible=calendarMode==="work";
   workLegend.classList.toggle("hidden",!workVisible);
+  workFilterSwitch.classList.toggle("hidden",!workVisible);
   plansPanel.classList.toggle("hidden",workVisible);
   workPanel.classList.toggle("hidden",!workVisible);
   if(!workVisible)return;
@@ -497,6 +501,12 @@ document.getElementById("settingsForm").onsubmit=async e=>{
 
 markWorkBtn.onclick=()=>applyWorkSelection(true);
 markWeekendBtn.onclick=()=>applyWorkSelection(false);
+document.querySelectorAll(".workFilterBtn").forEach(b=>b.onclick=()=>{
+  workViewFilter=b.dataset.filter;
+  document.querySelectorAll(".workFilterBtn").forEach(x=>x.classList.toggle("active",x===b));
+  renderCalendar();
+});
+
 clearWorkSelectionBtn.onclick=()=>{workSelection.clear();renderCalendar();};
 saveWorkBtn.onclick=saveWorkDays;
 

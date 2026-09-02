@@ -30,6 +30,12 @@
         <button id="nextMonth" class="roundBtn" aria-label="Следующий месяц">›</button>
       </div>
       <div class="weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+      <div id="workFilterSwitch" class="workFilterSwitch hidden">
+        <button type="button" class="workFilterBtn active" data-filter="all">Всё</button>
+        <button type="button" class="workFilterBtn" data-filter="mine">Только мои</button>
+        <button type="button" class="workFilterBtn" data-filter="partner">Только партнёра</button>
+        <button type="button" class="workFilterBtn" data-filter="overlap">Пересечения</button>
+      </div>
       <div id="calendar" class="calendar"></div>
       <div id="workLegend" class="workLegend hidden">
         <span><i class="legendDot mine"></i>Вы</span>
