@@ -165,11 +165,16 @@ function renderCalendar(){
     }else{
       const isMine=workDraft.has(iso);
       const isPartner=partner.has(iso);
-      const showMine=isMine&&(workViewFilter==="all"||workViewFilter==="mine"||(workViewFilter==="overlap"&&isPartner));
-      const showPartner=isPartner&&(workViewFilter==="all"||workViewFilter==="partner"||(workViewFilter==="overlap"&&isMine));
-      if(showMine&&showPartner)b.classList.add("workOverlap");
-      else if(showMine)b.classList.add("workMine");
-      else if(showPartner)b.classList.add("workPartner");
+      const isFreeOverlap=!isMine&&!isPartner&&!other; // оба свободны в этот день (общий выходной)
+      if(workViewFilter==="overlap"){
+        if(isFreeOverlap)b.classList.add("workFreeOverlap");
+      }else{
+        const showMine=isMine&&(workViewFilter==="all"||workViewFilter==="mine");
+        const showPartner=isPartner&&(workViewFilter==="all"||workViewFilter==="partner");
+        if(showMine&&showPartner)b.classList.add("workOverlap");
+        else if(showMine)b.classList.add("workMine");
+        else if(showPartner)b.classList.add("workPartner");
+      }
       if(workSelection.has(iso))b.classList.add("workSelected");
       if(iso===localISO(new Date()))b.classList.add("today");
       b.innerHTML=`<span>${d}</span>`;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>parplan</title>
-<link rel="stylesheet" href="style.css?v=20260903">
+<link rel="stylesheet" href="style.css?v=20260903b">
 </head>
 <body>
 <div class="app">
@@ -34,13 +34,14 @@
         <button type="button" class="workFilterBtn active" data-filter="all">Всё</button>
         <button type="button" class="workFilterBtn" data-filter="mine">Только мои</button>
         <button type="button" class="workFilterBtn" data-filter="partner">Только партнёра</button>
-        <button type="button" class="workFilterBtn" data-filter="overlap">Пересечения</button>
+        <button type="button" class="workFilterBtn" data-filter="overlap">Общие выходные</button>
       </div>
       <div id="calendar" class="calendar"></div>
       <div id="workLegend" class="workLegend hidden">
         <span><i class="legendDot mine"></i>Вы</span>
         <span><i class="legendDot partner"></i>Партнёр</span>
-        <span><i class="legendDot overlap"></i>Совпадают</span>
+        <span><i class="legendDot overlap"></i>Оба заняты</span>
+        <span><i class="legendDot free"></i>Оба свободны</span>
       </div>
     </section>
 
@@ -106,6 +107,6 @@
 
 <dialog id="settingsDialog"><form id="settingsForm"><div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div><label>Название пространства<input id="spaceNameInput" required></label><div class="fieldTitle">Цвета участников</div><p class="hint">Цвета сохраняются только у вас и не синхронизируются с другими участниками.</p><div id="colorSettingsList" class="colorSettingsList"></div><div class="fieldTitle">Уведомления</div><p class="hint">Когда вас добавляют участником — присылать сообщение в Telegram.</p><div class="checkList"><label class="checkItem"><input type="checkbox" id="notifyEventToggle">Новые события</label><label class="checkItem"><input type="checkbox" id="notifyTaskToggle">Новые дела</label><label class="checkItem"><input type="checkbox" id="notifyShoppingToggle">Новые покупки</label></div><button class="primary" type="submit">Сохранить</button></form></dialog>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="app.js?v=20260903"></script>
+<script src="app.js?v=20260903b"></script>
 </body>
 </html>
