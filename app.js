@@ -381,6 +381,37 @@ function scheduleDays(){
     return localISO(d);
   });
 }
+const SCHEDULE_HOUR_PX=44; // высота одного часа на шкале — компактнее, чтобы больше влезало на экран
+const SCHEDULE_MIN_BLOCK_PX=30; // минимальная высота блока дела/события, чтобы текст оставался читаемым
+
+// Раскладывает пересекающиеся по времени элементы в колонки внутри одной дорожки,
+// как в Google/Apple Calendar: если два дела наложились по времени — делим ширину пополам и т.д.
+function layoutOverlaps(items){
+  const sorted=[...items].sort((a,b)=>a.start-b.start||a.end-b.end);
+  const placed=[];
+  let cluster=[],clusterEnd=-1;
+  const flushCluster=()=>{
+    if(!cluster.length)return;
+    // Внутри кластера жадно раскладываем по колонкам: первая свободная колонка, где нет пересечения
+    const cols=[];
+    for(const it of cluster){
+      let col=cols.findIndex(end=>end<=it.start);
+      if(col===-1){col=cols.length;cols.push(0);}
+      cols[col]=it.end;
+      placed.push({...it,col});
+    }
+    const colCount=cols.length;
+    for(const p of placed.slice(-cluster.length))p.colCount=colCount;
+    cluster=[];clusterEnd=-1;
+  };
+  for(const it of sorted){
+    if(cluster.length&&it.start>=clusterEnd)flushCluster();
+    cluster.push(it);
+    clusterEnd=Math.max(clusterEnd,it.end);
+  }
+  flushCluster();
+  return placed;
+}
 function timeToMinutes(t){if(!t)return null;const [h,m]=t.split(":").map(Number);return h*60+(m||0);}
 function scheduleItemsForDay(iso){
   // Собираем события (есть start/end) и дела с указанным временем (due_at, длительность условная 30 мин)
@@ -415,20 +446,30 @@ function renderSchedule(){
     });
     const showMineLane=scheduleFilter==="all"||scheduleFilter==="mine";
     const showPartnerLane=scheduleFilter==="all"||scheduleFilter==="partner";
-    const laneCount=(showMineLane?1:0)+(showPartnerLane?1:0)||1;
-    const renderBlocks=(cls,filterFn)=>items.filter(filterFn).map(it=>{
-      const top=(it.start/60)*52,h=Math.max(((it.end-it.start)/60)*52,18);
-      return `<div class="scheduleBlock ${cls}" style="top:${top}px;height:${h}px"><b>${esc(it.title)}</b>${String(Math.floor(it.start/60)).padStart(2,"0")}:${String(it.start%60).padStart(2,"0")}</div>`;
-    }).join("");
+    const renderBlocks=(cls,filterFn)=>{
+      const laid=layoutOverlaps(items.filter(filterFn));
+      return laid.map(it=>{
+        const top=(it.start/60)*SCHEDULE_HOUR_PX;
+        const h=Math.max(((it.end-it.start)/60)*SCHEDULE_HOUR_PX,SCHEDULE_MIN_BLOCK_PX);
+        const widthPct=100/it.colCount,leftPct=widthPct*it.col;
+        const timeLabel=`${String(Math.floor(it.start/60)).padStart(2,"0")}:${String(it.start%60).padStart(2,"0")}`;
+        const compact=h<SCHEDULE_MIN_BLOCK_PX+8; // мало места — прячем время, оставляем только название
+        return `<div class="scheduleBlock ${cls}" style="top:${top}px;height:${h}px;left:${leftPct}%;width:calc(${widthPct}% - 2px)"><b>${esc(it.title)}</b>${compact?"":timeLabel}</div>`;
+      }).join("");
+    };
     const lanesHtml=[
       showMineLane?`<div class="scheduleLane">${renderBlocks("mine",it=>it.mine)}</div>`:"",
       showPartnerLane?`<div class="scheduleLane">${renderBlocks("partner",it=>it.isPartner)}</div>`:""
     ].join("");
-    const nowLine=iso===todayIso?`<div class="scheduleNow" style="top:${(nowMin/60)*52}px"></div>`:"";
+    const nowLine=iso===todayIso?`<div class="scheduleNow" style="top:${(nowMin/60)*SCHEDULE_HOUR_PX}px"></div>`:"";
     const rows=Array.from({length:24},()=>`<div class="scheduleHourRow"></div>`).join("");
     return `<div class="scheduleDay ${iso===todayIso?"today":""}"><div class="scheduleDayHead">${fmtShort(iso)}</div><div class="scheduleDayBody">${rows}<div class="scheduleLanes">${lanesHtml}</div>${nowLine}</div></div>`;
   }).join("");
   scheduleGrid.innerHTML=`<div class="scheduleHours"><div class="scheduleDayHead"></div>${hourLabels}</div>${dayCols}`;
+  // Автоскролл: сразу показываем время "на час раньше текущего", а не всегда с полуночи —
+  // чтобы не листать вручную к актуальному участку дня при каждом открытии.
+  const scrollTargetMin=Math.max(0,nowMin-60);
+  scheduleGrid.scrollTop=(scrollTargetMin/60)*SCHEDULE_HOUR_PX;
 }
 function fmtShort(iso){return new Intl.DateTimeFormat("ru-RU",{weekday:"short",day:"numeric",month:"short"}).format(new Date(iso+"T12:00:00"));}
 
@@ -555,10 +596,11 @@ settingsBtn.onclick=()=>{
   document.getElementById("spaceNameInput").value=state.space.name||"";
   renderColorSettings();
   document.getElementById("scheduleRange"+scheduleRange).checked=true;
-  const ns=state.notificationSettings||{notify_event:true,notify_task:true,notify_shopping:true};
+  const ns=state.notificationSettings||{notify_event:true,notify_task:true,notify_shopping:true,notify_completed:true};
   document.getElementById("notifyEventToggle").checked=ns.notify_event!==false;
   document.getElementById("notifyTaskToggle").checked=ns.notify_task!==false;
   document.getElementById("notifyShoppingToggle").checked=ns.notify_shopping!==false;
+  document.getElementById("notifyCompletedToggle").checked=ns.notify_completed!==false;
   document.getElementById("settingsDialog").showModal();
 };
 document.getElementById("settingsForm").onsubmit=async e=>{
@@ -570,9 +612,10 @@ document.getElementById("settingsForm").onsubmit=async e=>{
   const notify_event=document.getElementById("notifyEventToggle").checked;
   const notify_task=document.getElementById("notifyTaskToggle").checked;
   const notify_shopping=document.getElementById("notifyShoppingToggle").checked;
+  const notify_completed=document.getElementById("notifyCompletedToggle").checked;
   const ns=state.notificationSettings||{};
-  if(ns.notify_event!==notify_event||ns.notify_task!==notify_task||ns.notify_shopping!==notify_shopping){
-    await act("save_notification_settings",{notify_event,notify_task,notify_shopping});
+  if(ns.notify_event!==notify_event||ns.notify_task!==notify_task||ns.notify_shopping!==notify_shopping||ns.notify_completed!==notify_completed){
+    await act("save_notification_settings",{notify_event,notify_task,notify_shopping,notify_completed});
   }
   document.getElementById("settingsDialog").close();
   if(calendarMode==="schedule")renderSchedule();
