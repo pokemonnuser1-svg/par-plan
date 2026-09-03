@@ -353,7 +353,14 @@ function renderRows(type,list,empty,filterBox){
 
 function bind(){
   document.querySelectorAll("[data-part]").forEach(b=>b.onclick=()=>{const[a,id,status]=b.dataset.part.split("|");act(a,{id,status});});
-  document.querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{const[t,f]=b.dataset.filter.split("|");filters[t]=f;renderAll();});
+  // Фильтры задач/покупок используют формат "tasks|all".
+  // Рабочие дни имеют свой обработчик ниже, поэтому их здесь не перехватываем.
+  document.querySelectorAll(".filterBtn[data-filter]").forEach(b=>b.onclick=()=>{
+    const [t,f]=b.dataset.filter.split("|");
+    if(!t||!f)return;
+    filters[t]=f;
+    renderAll();
+  });
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onchange=()=>{const[t,id]=b.dataset.toggle.split("|");act(t==="tasks"?"toggle_task":"toggle_shopping",{id,is_completed:b.checked});});
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const[t,id]=b.dataset.del.split("|");act(t==="tasks"?"delete_task":"delete_shopping",{id});});
   document.querySelectorAll("[data-del-event]").forEach(b=>b.onclick=()=>act("delete_event",{id:b.dataset.delEvent}));
@@ -448,13 +455,11 @@ simpleForm.onsubmit=async e=>{
     payload.due_time=dueTime||null;
     payload.reminder_minutes=reminder===""?null:Number(reminder);
     if(dueDate&&dueTime){
+      // Пользователь выбирает локальное время. Храним момент в UTC,
+      // чтобы reminder-worker мог корректно сравнивать его с Date.now().
       const local=new Date(`${dueDate}T${dueTime}:00`);
-      const offset=-local.getTimezoneOffset();
-      const sign=offset>=0?"+":"-";
-      const abs=Math.abs(offset);
-      const hh=String(Math.floor(abs/60)).padStart(2,"0");
-      const mm=String(abs%60).padStart(2,"0");
-      payload.due_at=`${dueDate}T${dueTime}:00${sign}${hh}:${mm}`;
+      if(Number.isNaN(local.getTime()))return alert("Некорректная дата или время.");
+      payload.due_at=local.toISOString();
     }else payload.due_at=null;
   }
   await act(simpleMode==="tasks"?"create_task":"create_shopping",payload);
