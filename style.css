@@ -40,3 +40,21 @@ label{display:block;font-size:12px;color:var(--muted);margin:13px 0}input{displa
 .dueMeta{margin-top:5px;font-size:.82rem;opacity:.85}
 
 .colorSettingsList{display:grid;gap:10px;margin:10px 0 16px}.colorSettingRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px}.memberMini{display:flex;align-items:center;gap:9px}.memberMini .memberAvatar{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;color:#fff}.colorControls{display:flex;align-items:center;gap:8px}.colorControls input[type="color"]{width:42px;height:34px;padding:2px;border-radius:8px;background:transparent;border:0}
+
+/* Дневное расписание по часам */
+.scheduleFilterBtn{flex:1;min-width:0;border:1px solid var(--line);background:var(--soft);color:var(--muted);border-radius:10px;padding:6px 4px;font-size:11px;cursor:pointer;white-space:nowrap}.scheduleFilterBtn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.scheduleGrid{display:flex;overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
+.scheduleHours{flex:none;width:38px;position:sticky;left:0;background:var(--soft);z-index:2}
+.scheduleHourLabel{height:52px;font-size:10px;color:var(--muted);text-align:right;padding-right:5px;box-sizing:border-box;border-top:1px solid var(--line)}
+.scheduleDay{flex:none;width:96px;border-left:1px solid var(--line);position:relative}
+.scheduleDay.today .scheduleDayHead{color:var(--accent2)}
+.scheduleDayHead{height:34px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--soft);z-index:1;text-align:center;line-height:1.2}
+.scheduleDayBody{position:relative;height:calc(52px * 24)}
+.scheduleHourRow{position:absolute;left:0;right:0;height:52px;border-top:1px solid var(--line);box-sizing:border-box}
+.scheduleLanes{position:absolute;top:0;bottom:0;display:flex;left:2px;right:2px;gap:2px}
+.scheduleLane{position:relative;flex:1;min-width:0}
+.scheduleBlock{position:absolute;left:1px;right:1px;border-radius:8px;padding:3px 5px;font-size:10px;line-height:1.25;overflow:hidden;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.scheduleBlock.mine{background:var(--blue)}
+.scheduleBlock.partner{background:var(--purple)}
+.scheduleBlock b{display:block;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scheduleNow{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:3}

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>parplan</title>
-<link rel="stylesheet" href="style.css?v=20260903b">
+<link rel="stylesheet" href="style.css?v=20260903c">
 </head>
 <body>
 <div class="app">
@@ -20,10 +20,11 @@
   <section id="calendarView">
     <div class="modeSwitch">
       <button class="modeBtn active" data-mode="plans">Планы</button>
+      <button class="modeBtn" data-mode="schedule">Расписание</button>
       <button class="modeBtn" data-mode="work">Рабочие дни</button>
     </div>
 
-    <section class="card compact">
+    <section id="monthCard" class="card compact">
       <div class="sectionHead">
         <button id="prevMonth" class="roundBtn" aria-label="Предыдущий месяц">‹</button>
         <h2 id="monthTitle"></h2>
@@ -54,6 +55,22 @@
         <div id="overlapWarning" class="warning hidden"></div>
         <div id="eventsList" class="list"></div>
         <div id="eventsEmpty" class="empty">На этот день событий нет</div>
+      </section>
+    </section>
+
+    <section id="schedulePanel" class="hidden">
+      <section class="card">
+        <div class="sectionHead">
+          <button id="schedulePrev" class="roundBtn" aria-label="Раньше">‹</button>
+          <h2 id="scheduleTitle"></h2>
+          <button id="scheduleNext" class="roundBtn" aria-label="Позже">›</button>
+        </div>
+        <div id="scheduleFilterSwitch" class="workFilterSwitch">
+          <button type="button" class="scheduleFilterBtn active" data-sfilter="all">Все</button>
+          <button type="button" class="scheduleFilterBtn" data-sfilter="mine">Только я</button>
+          <button type="button" class="scheduleFilterBtn" data-sfilter="partner">Только партнёр</button>
+        </div>
+        <div id="scheduleGrid" class="scheduleGrid"></div>
       </section>
     </section>
 
@@ -105,8 +122,8 @@
 <dialog id="eventDialog"><form id="eventForm"><div class="dialogHead"><h2>Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div><label>Название<input id="eventTitle" required></label><label>Дата<input id="eventDate" type="date" required></label><div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div><div class="fieldTitle">Участники</div><div id="eventMembers" class="checkList"></div><button class="primary" type="submit">Сохранить</button></form></dialog>
 <dialog id="simpleDialog"><form id="simpleForm"><div class="dialogHead"><h2 id="simpleTitle">Добавить</h2><button type="button" class="closeBtn" data-close="simpleDialog">×</button></div><label>Название<input id="simpleInput" required></label><div id="taskScheduleFields" class="taskSchedule hidden"><div class="fieldTitle">Время выполнения и напоминание</div><label>Дата<input id="taskDate" type="date"></label><label>Время<input id="taskTime" type="time"></label><label>Напомнить<select id="taskReminder"><option value="">Без напоминания</option><option value="0">В момент</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label><p class="hint">Для напоминания укажи дату и время.</p></div><div class="fieldTitle">Кому относится</div><div id="simpleMembers" class="checkList"></div><button class="primary" type="submit">Добавить</button></form></dialog>
 
-<dialog id="settingsDialog"><form id="settingsForm"><div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div><label>Название пространства<input id="spaceNameInput" required></label><div class="fieldTitle">Цвета участников</div><p class="hint">Цвета сохраняются только у вас и не синхронизируются с другими участниками.</p><div id="colorSettingsList" class="colorSettingsList"></div><div class="fieldTitle">Уведомления</div><p class="hint">Когда вас добавляют участником — присылать сообщение в Telegram.</p><div class="checkList"><label class="checkItem"><input type="checkbox" id="notifyEventToggle">Новые события</label><label class="checkItem"><input type="checkbox" id="notifyTaskToggle">Новые дела</label><label class="checkItem"><input type="checkbox" id="notifyShoppingToggle">Новые покупки</label></div><button class="primary" type="submit">Сохранить</button></form></dialog>
+<dialog id="settingsDialog"><form id="settingsForm"><div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div><label>Название пространства<input id="spaceNameInput" required></label><div class="fieldTitle">Цвета участников</div><p class="hint">Цвета сохраняются только у вас и не синхронизируются с другими участниками.</p><div id="colorSettingsList" class="colorSettingsList"></div><div class="fieldTitle">Расписание по часам</div><p class="hint">Сколько дней показывать во вкладке «Расписание».</p><div class="checkList"><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange1" value="1">1 день</label><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange3" value="3">3 дня</label><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange7" value="7">Неделя</label></div><div class="fieldTitle">Уведомления</div><p class="hint">Когда вас добавляют участником — присылать сообщение в Telegram.</p><div class="checkList"><label class="checkItem"><input type="checkbox" id="notifyEventToggle">Новые события</label><label class="checkItem"><input type="checkbox" id="notifyTaskToggle">Новые дела</label><label class="checkItem"><input type="checkbox" id="notifyShoppingToggle">Новые покупки</label></div><button class="primary" type="submit">Сохранить</button></form></dialog>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="app.js?v=20260903b"></script>
+<script src="app.js?v=20260903c"></script>
 </body>
 </html>

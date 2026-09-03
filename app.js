@@ -17,6 +17,9 @@ let filters={tasks:"all",shopping:"all"};
 let busy=false;
 let calendarMode="plans";
 let workViewFilter="all"; // all | mine | partner | overlap — что подсвечивать в режиме "Рабочие дни"
+let scheduleFilter="all"; // all | mine | partner — чью дорожку показывать в расписании
+let scheduleRange=Number(localStorage.getItem("parplan_schedule_range_v1")||3); // 1 | 3 | 7 — сколько дней показывать в расписании (настраивается)
+let scheduleAnchor=localISO(new Date()); // первый день видимого диапазона расписания
 let workDraft=new Set();
 let workSelection=new Set();
 let workDirty=false;
@@ -371,10 +374,72 @@ function bind(){
   document.querySelectorAll("[data-del-event]").forEach(b=>b.onclick=()=>act("delete_event",{id:b.dataset.delEvent}));
 }
 
+function scheduleDays(){
+  const start=new Date(scheduleAnchor+"T12:00:00");
+  return Array.from({length:scheduleRange},(_,i)=>{
+    const d=new Date(start);d.setDate(d.getDate()+i);
+    return localISO(d);
+  });
+}
+function timeToMinutes(t){if(!t)return null;const [h,m]=t.split(":").map(Number);return h*60+(m||0);}
+function scheduleItemsForDay(iso){
+  // Собираем события (есть start/end) и дела с указанным временем (due_at, длительность условная 30 мин)
+  const items=[];
+  for(const e of state.events){
+    if(e.event_date!==iso)continue;
+    const start=timeToMinutes(e.start_time),end=timeToMinutes(e.end_time);
+    if(start===null||end===null)continue;
+    items.push({title:e.title,start,end:Math.max(end,start+20),participants:e.participants});
+  }
+  for(const t of state.tasks){
+    if(!t.due_at||t.is_completed)continue;
+    const dt=new Date(t.due_at);
+    if(localISO(dt)!==iso)continue;
+    const start=dt.getHours()*60+dt.getMinutes();
+    items.push({title:t.title,start,end:start+30,participants:t.participants});
+  }
+  return items;
+}
+function renderSchedule(){
+  if(!state)return;
+  const days=scheduleDays();
+  scheduleTitle.textContent=days.length===1?fmt(days[0]):`${fmt(days[0])} — ${fmt(days[days.length-1])}`;
+  const hourLabels=Array.from({length:24},(_,h)=>`<div class="scheduleHourLabel">${String(h).padStart(2,"0")}:00</div>`).join("");
+  const nowMin=new Date().getHours()*60+new Date().getMinutes();
+  const todayIso=localISO(new Date());
+  const dayCols=days.map(iso=>{
+    const items=scheduleItemsForDay(iso).map(it=>{
+      const mine=it.participants.some(p=>p.status==="joined"&&p.user_id===me());
+      const isPartner=it.participants.some(p=>p.status==="joined"&&p.user_id!==me());
+      return {...it,mine,isPartner};
+    });
+    const showMineLane=scheduleFilter==="all"||scheduleFilter==="mine";
+    const showPartnerLane=scheduleFilter==="all"||scheduleFilter==="partner";
+    const laneCount=(showMineLane?1:0)+(showPartnerLane?1:0)||1;
+    const renderBlocks=(cls,filterFn)=>items.filter(filterFn).map(it=>{
+      const top=(it.start/60)*52,h=Math.max(((it.end-it.start)/60)*52,18);
+      return `<div class="scheduleBlock ${cls}" style="top:${top}px;height:${h}px"><b>${esc(it.title)}</b>${String(Math.floor(it.start/60)).padStart(2,"0")}:${String(it.start%60).padStart(2,"0")}</div>`;
+    }).join("");
+    const lanesHtml=[
+      showMineLane?`<div class="scheduleLane">${renderBlocks("mine",it=>it.mine)}</div>`:"",
+      showPartnerLane?`<div class="scheduleLane">${renderBlocks("partner",it=>it.isPartner)}</div>`:""
+    ].join("");
+    const nowLine=iso===todayIso?`<div class="scheduleNow" style="top:${(nowMin/60)*52}px"></div>`:"";
+    const rows=Array.from({length:24},()=>`<div class="scheduleHourRow"></div>`).join("");
+    return `<div class="scheduleDay ${iso===todayIso?"today":""}"><div class="scheduleDayHead">${fmtShort(iso)}</div><div class="scheduleDayBody">${rows}<div class="scheduleLanes">${lanesHtml}</div>${nowLine}</div></div>`;
+  }).join("");
+  scheduleGrid.innerHTML=`<div class="scheduleHours"><div class="scheduleDayHead"></div>${hourLabels}</div>${dayCols}`;
+}
+function fmtShort(iso){return new Intl.DateTimeFormat("ru-RU",{weekday:"short",day:"numeric",month:"short"}).format(new Date(iso+"T12:00:00"));}
+
 function renderAll(){
   if(!state)return;
   spaceTitle.textContent=state.space.name;
-  renderCalendar();
+  monthCard.classList.toggle("hidden",calendarMode==="schedule");
+  plansPanel.classList.toggle("hidden",calendarMode!=="plans");
+  workPanel.classList.toggle("hidden",calendarMode!=="work");
+  schedulePanel.classList.toggle("hidden",calendarMode!=="schedule");
+  if(calendarMode==="schedule")renderSchedule();else renderCalendar();
   renderEvents();
   renderMembers();
   renderRows("tasks",tasksList,tasksEmpty,tasksFilters);
@@ -489,6 +554,7 @@ function renderColorSettings(){
 settingsBtn.onclick=()=>{
   document.getElementById("spaceNameInput").value=state.space.name||"";
   renderColorSettings();
+  document.getElementById("scheduleRange"+scheduleRange).checked=true;
   const ns=state.notificationSettings||{notify_event:true,notify_task:true,notify_shopping:true};
   document.getElementById("notifyEventToggle").checked=ns.notify_event!==false;
   document.getElementById("notifyTaskToggle").checked=ns.notify_task!==false;
@@ -499,6 +565,8 @@ document.getElementById("settingsForm").onsubmit=async e=>{
   e.preventDefault();
   const n=document.getElementById("spaceNameInput").value.trim();
   if(n&&n!==state.space.name)await act("rename_space",{name:n});
+  const range=Number(document.querySelector('input[name="scheduleRange"]:checked')?.value||3);
+  if(range!==scheduleRange){scheduleRange=range;localStorage.setItem("parplan_schedule_range_v1",String(range));}
   const notify_event=document.getElementById("notifyEventToggle").checked;
   const notify_task=document.getElementById("notifyTaskToggle").checked;
   const notify_shopping=document.getElementById("notifyShoppingToggle").checked;
@@ -507,6 +575,7 @@ document.getElementById("settingsForm").onsubmit=async e=>{
     await act("save_notification_settings",{notify_event,notify_task,notify_shopping});
   }
   document.getElementById("settingsDialog").close();
+  if(calendarMode==="schedule")renderSchedule();
 };
 
 markWorkBtn.onclick=()=>applyWorkSelection(true);
@@ -519,6 +588,20 @@ document.querySelectorAll(".workFilterBtn").forEach(b=>b.onclick=()=>{
 
 clearWorkSelectionBtn.onclick=()=>{workSelection.clear();renderCalendar();};
 saveWorkBtn.onclick=saveWorkDays;
+
+document.querySelectorAll(".scheduleFilterBtn").forEach(b=>b.onclick=()=>{
+  scheduleFilter=b.dataset.sfilter;
+  document.querySelectorAll(".scheduleFilterBtn").forEach(x=>x.classList.toggle("active",x===b));
+  renderSchedule();
+});
+function shiftSchedule(dir){
+  const d=new Date(scheduleAnchor+"T12:00:00");
+  d.setDate(d.getDate()+dir*scheduleRange);
+  scheduleAnchor=localISO(d);
+  renderSchedule();
+}
+schedulePrev.onclick=()=>shiftSchedule(-1);
+scheduleNext.onclick=()=>shiftSchedule(1);
 
 setInterval(()=>load(true),12000);
 load();
