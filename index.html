@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>parplan</title>
-<link rel="stylesheet" href="style.css?v=20260904">
+<link rel="stylesheet" href="style.css?v=20260904b">
 </head>
 <body>
 <div class="app">
@@ -52,6 +52,7 @@
           <div><div class="muted">Выбранный день</div><h2 id="selectedDateTitle"></h2></div>
           <button id="addEventBtn" class="smallPrimary">＋ Событие</button>
         </div>
+        <div id="seriesBanners"></div>
         <div id="overlapWarning" class="warning hidden"></div>
         <div id="eventsList" class="list"></div>
         <div id="eventsEmpty" class="empty">На этот день событий нет</div>
@@ -119,11 +120,12 @@
   <button class="navItem" data-view="peopleView">👥<span>Люди</span></button>
 </nav>
 
-<dialog id="eventDialog"><form id="eventForm"><div class="dialogHead"><h2>Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div><label>Название<input id="eventTitle" required></label><label>Дата<input id="eventDate" type="date" required></label><div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div><div class="fieldTitle">Участники</div><div id="eventMembers" class="checkList"></div><button class="primary" type="submit">Сохранить</button></form></dialog>
+<dialog id="eventDialog"><form id="eventForm"><div class="dialogHead"><h2>Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div><label>Название<input id="eventTitle" required></label><label>Дата<input id="eventDate" type="date" required></label><div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div><div class="fieldTitle">Повтор</div><select id="eventRepeat"><option value="">Не повторять</option><option value="weekly">Каждую неделю</option><option value="monthly">Каждый месяц</option><option value="yearly">Каждый год (день рождения и т.п.)</option></select><label id="eventRepeatUntilWrap" class="hidden">До какой даты (необязательно)<input id="eventRepeatUntil" type="date"></label><div class="fieldTitle">Участники</div><div id="eventMembers" class="checkList"></div><button class="primary" type="submit">Сохранить</button></form></dialog>
+<dialog id="deleteSeriesDialog"><div class="dialogHead"><h2>Удалить событие</h2><button type="button" class="closeBtn" data-close="deleteSeriesDialog">×</button></div><p class="hint">Это событие повторяется. Что удалить?</p><div class="dialogActions"><button id="deleteOneBtn" class="secondary">Только это</button><button id="deleteSeriesBtn" class="danger">Всю серию</button></div></dialog>
 <dialog id="simpleDialog"><form id="simpleForm"><div class="dialogHead"><h2 id="simpleTitle">Добавить</h2><button type="button" class="closeBtn" data-close="simpleDialog">×</button></div><label>Название<input id="simpleInput" required></label><div id="taskScheduleFields" class="taskSchedule hidden"><div class="fieldTitle">Время выполнения и напоминание</div><label>Дата<input id="taskDate" type="date"></label><label>Время<input id="taskTime" type="time"></label><label>Напомнить<select id="taskReminder"><option value="">Без напоминания</option><option value="0">В момент</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label><p class="hint">Для напоминания укажи дату и время.</p></div><div class="fieldTitle">Кому относится</div><div id="simpleMembers" class="checkList"></div><button class="primary" type="submit">Добавить</button></form></dialog>
 
 <dialog id="settingsDialog"><form id="settingsForm"><div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div><label>Название пространства<input id="spaceNameInput" required></label><div class="fieldTitle">Цвета участников</div><p class="hint">Цвета сохраняются только у вас и не синхронизируются с другими участниками.</p><div id="colorSettingsList" class="colorSettingsList"></div><div class="fieldTitle">Расписание по часам</div><p class="hint">Сколько дней показывать во вкладке «Расписание».</p><div class="checkList"><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange1" value="1">1 день</label><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange3" value="3">3 дня</label><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange7" value="7">Неделя</label></div><div class="fieldTitle">Уведомления</div><p class="hint">Когда вас добавляют участником — присылать сообщение в Telegram.</p><div class="checkList"><label class="checkItem"><input type="checkbox" id="notifyEventToggle">Новые события</label><label class="checkItem"><input type="checkbox" id="notifyTaskToggle">Новые дела</label><label class="checkItem"><input type="checkbox" id="notifyShoppingToggle">Новые покупки</label><label class="checkItem"><input type="checkbox" id="notifyCompletedToggle">Выполненные дела и покупки</label></div><button class="primary" type="submit">Сохранить</button></form></dialog>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="app.js?v=20260904"></script>
+<script src="app.js?v=20260904b"></script>
 </body>
 </html>

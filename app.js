@@ -20,6 +20,7 @@ let workViewFilter="all"; // all | mine | partner | overlap — что подс�
 let scheduleFilter="all"; // all | mine | partner — чью дорожку показывать в расписании
 let scheduleRange=Number(localStorage.getItem("parplan_schedule_range_v1")||3); // 1 | 3 | 7 — сколько дней показывать в расписании (настраивается)
 let scheduleAnchor=localISO(new Date()); // первый день видимого диапазона расписания
+let pendingDeleteEventId=null; // id события, для которого сейчас открыт диалог "удалить одно/серию"
 let workDraft=new Set();
 let workSelection=new Set();
 let workDirty=false;
@@ -249,8 +250,9 @@ function bindWorkPointer(btn,iso){
 }
 function renderEvents(){
   selectedDateTitle.textContent=fmt(selectedDate);
+  seriesBanners.innerHTML=(state.expiringSeries||[]).map(s=>`<div class="seriesBanner"><span>🔁 «${esc(s.title)}» — серия скоро закончится</span><button data-extend-series="${s.id}">Продлить</button></div>`).join("");
   const a=state.events.filter(e=>e.event_date===selectedDate).sort((a,b)=>a.start_time.localeCompare(b.start_time));
-  eventsList.innerHTML=a.map(e=>`<div class="event"><div class="eventTime">${e.start_time.slice(0,5)}<br><span class="muted">${e.end_time.slice(0,5)}</span></div><div class="eventBody"><div class="eventTitle">${esc(e.title)}</div><div class="chips">${chips(e)}</div><div class="rowActions">${partButtons("event",e)}</div></div>${e.created_by===me()?`<button class="deleteBtn" data-del-event="${e.id}">×</button>`:""}</div>`).join("");
+  eventsList.innerHTML=a.map(e=>`<div class="event"><div class="eventTime">${e.start_time.slice(0,5)}<br><span class="muted">${e.end_time.slice(0,5)}</span></div><div class="eventBody"><div class="eventTitle">${esc(e.title)}${e.series_id?' <span class="muted">↻</span>':""}</div><div class="chips">${chips(e)}</div><div class="rowActions">${partButtons("event",e)}</div></div>${e.created_by===me()?`<button class="deleteBtn" data-del-event="${e.id}" data-series="${e.series_id||""}">×</button>`:""}</div>`).join("");
   eventsEmpty.style.display=a.length?"none":"block";
   let n=0;
   for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
@@ -371,7 +373,16 @@ function bind(){
   });
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onchange=()=>{const[t,id]=b.dataset.toggle.split("|");act(t==="tasks"?"toggle_task":"toggle_shopping",{id,is_completed:b.checked});});
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const[t,id]=b.dataset.del.split("|");act(t==="tasks"?"delete_task":"delete_shopping",{id});});
-  document.querySelectorAll("[data-del-event]").forEach(b=>b.onclick=()=>act("delete_event",{id:b.dataset.delEvent}));
+  document.querySelectorAll("[data-del-event]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.delEvent,seriesId=b.dataset.series;
+    if(seriesId){
+      pendingDeleteEventId=id;
+      deleteSeriesDialog.showModal();
+    }else{
+      act("delete_event",{id});
+    }
+  });
+  document.querySelectorAll("[data-extend-series]").forEach(b=>b.onclick=()=>act("extend_series",{series_id:b.dataset.extendSeries}));
 }
 
 function scheduleDays(){
@@ -524,8 +535,15 @@ addEventBtn.onclick=()=>{
   eventDate.value=selectedDate;
   eventStart.value="";
   eventEnd.value="";
+  eventRepeat.value="";
+  eventRepeatUntil.value="";
+  eventRepeatUntilWrap.classList.add("hidden");
   eventMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${m.id===me()?"checked":""}>${esc(m.display_name)}</label>`).join("");
   eventDialog.showModal();
+};
+
+eventRepeat.onchange=()=>{
+  eventRepeatUntilWrap.classList.toggle("hidden",!eventRepeat.value);
 };
 
 eventForm.onsubmit=async e=>{
@@ -533,7 +551,12 @@ eventForm.onsubmit=async e=>{
   const participantIds=[...document.querySelectorAll("#eventMembers input:checked")].map(x=>x.value);
   if(!participantIds.length)return alert("Выбери участника.");
   if(eventEnd.value<=eventStart.value)return alert("Проверь время.");
-  await act("create_event",{title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,participantIds});
+  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,participantIds};
+  if(eventRepeat.value){
+    payload.repeat_type=eventRepeat.value;
+    if(eventRepeatUntil.value)payload.repeat_until=eventRepeatUntil.value;
+  }
+  await act("create_event",payload);
   selectedDate=eventDate.value;
   eventDialog.close();
 };
@@ -645,6 +668,17 @@ function shiftSchedule(dir){
 }
 schedulePrev.onclick=()=>shiftSchedule(-1);
 scheduleNext.onclick=()=>shiftSchedule(1);
+
+deleteOneBtn.onclick=async()=>{
+  const id=pendingDeleteEventId;pendingDeleteEventId=null;
+  deleteSeriesDialog.close();
+  if(id)await act("delete_event",{id});
+};
+deleteSeriesBtn.onclick=async()=>{
+  const id=pendingDeleteEventId;pendingDeleteEventId=null;
+  deleteSeriesDialog.close();
+  if(id)await act("delete_event",{id,scope:"series"});
+};
 
 setInterval(()=>load(true),12000);
 load();

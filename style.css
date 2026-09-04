@@ -58,3 +58,11 @@ label{display:block;font-size:12px;color:var(--muted);margin:13px 0}input{displa
 .scheduleBlock.partner{background:var(--purple)}
 .scheduleBlock b{display:block;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scheduleNow{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:3}
+
+/* Диалог выбора удаления повторяющегося события + баннер продления серии */
+.dialogActions{display:flex;gap:10px;margin-top:14px}
+.dialogActions button{flex:1}
+.secondary{background:var(--soft2);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px;font-weight:700;cursor:pointer}
+.danger{background:var(--danger);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer}
+.seriesBanner{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--soft2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px}
+.seriesBanner button{flex:none;background:var(--blue);color:#fff;border:none;border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
