@@ -21,6 +21,9 @@ let scheduleFilter="all"; // all | mine | partner — чью дорожку по
 let scheduleRange=Number(localStorage.getItem("parplan_schedule_range_v1")||3); // 1 | 3 | 7 — сколько дней показывать в расписании (настраивается)
 let scheduleAnchor=localISO(new Date()); // первый день видимого диапазона расписания
 let pendingDeleteEventId=null; // id события, для которого сейчас открыт диалог "удалить одно/серию"
+let scheduleShouldAutoscroll=true; // true только при первом открытии вкладки "Расписание" или смене дня/фильтра
+let editingSimpleId=null; // id дела/покупки, которое сейчас редактируется (null = создаём новое)
+let editingEventId=null; // id события, которое сейчас редактируется (null = создаём новое)
 let workDraft=new Set();
 let workSelection=new Set();
 let workDirty=false;
@@ -252,7 +255,7 @@ function renderEvents(){
   selectedDateTitle.textContent=fmt(selectedDate);
   seriesBanners.innerHTML=(state.expiringSeries||[]).map(s=>`<div class="seriesBanner"><span>🔁 «${esc(s.title)}» — серия скоро закончится</span><button data-extend-series="${s.id}">Продлить</button></div>`).join("");
   const a=state.events.filter(e=>e.event_date===selectedDate).sort((a,b)=>a.start_time.localeCompare(b.start_time));
-  eventsList.innerHTML=a.map(e=>`<div class="event"><div class="eventTime">${e.start_time.slice(0,5)}<br><span class="muted">${e.end_time.slice(0,5)}</span></div><div class="eventBody"><div class="eventTitle">${esc(e.title)}${e.series_id?' <span class="muted">↻</span>':""}</div><div class="chips">${chips(e)}</div><div class="rowActions">${partButtons("event",e)}</div></div>${e.created_by===me()?`<button class="deleteBtn" data-del-event="${e.id}" data-series="${e.series_id||""}">×</button>`:""}</div>`).join("");
+  eventsList.innerHTML=a.map(e=>`<div class="event"><div class="eventTime">${e.start_time.slice(0,5)}<br><span class="muted">${e.end_time.slice(0,5)}</span></div><div class="eventBody"><div class="eventTitle">${esc(e.title)}${e.series_id?' <span class="muted">↻</span>':""}</div><div class="chips">${chips(e)}</div><div class="rowActions">${partButtons("event",e)}</div></div>${e.created_by===me()?`<button class="editBtn" data-edit-event="${e.id}">✎</button><button class="deleteBtn" data-del-event="${e.id}" data-series="${e.series_id||""}">×</button>`:""}</div>`).join("");
   eventsEmpty.style.display=a.length?"none":"block";
   let n=0;
   for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
@@ -357,7 +360,7 @@ function filtered(type){
 function renderRows(type,list,empty,filterBox){
   filterBox.innerHTML=[["all","Все"],["mine","Моё"],["other","Других"],["common","Общее"]].map(([v,t])=>`<button class="filterBtn ${filters[type]===v?"active":""}" data-filter="${type}|${v}">${t}</button>`).join("");
   const a=filtered(type);
-  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatDueAt(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
+  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatDueAt(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="editBtn" data-edit="${type}|${x.id}">✎</button><button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
   empty.style.display=a.length?"none":"block";
 }
 
@@ -373,6 +376,15 @@ function bind(){
   });
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onchange=()=>{const[t,id]=b.dataset.toggle.split("|");act(t==="tasks"?"toggle_task":"toggle_shopping",{id,is_completed:b.checked});});
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const[t,id]=b.dataset.del.split("|");act(t==="tasks"?"delete_task":"delete_shopping",{id});});
+  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
+    const [t,id]=b.dataset.edit.split("|");
+    const item=(t==="tasks"?state.tasks:state.shopping).find(x=>x.id===id);
+    if(item)openSimple(t,t==="tasks"?"Дело":"Покупка",item);
+  });
+  document.querySelectorAll("[data-edit-event]").forEach(b=>b.onclick=()=>{
+    const item=state.events.find(x=>x.id===b.dataset.editEvent);
+    if(item)openEventDialog(item);
+  });
   document.querySelectorAll("[data-del-event]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.delEvent,seriesId=b.dataset.series;
     if(seriesId){
@@ -444,6 +456,7 @@ function scheduleItemsForDay(iso){
 }
 function renderSchedule(){
   if(!state)return;
+  const preservedScrollTop=scheduleGrid.scrollTop; // текущая позиция — восстановим после перерисовки, если не нужен автоскролл
   const days=scheduleDays();
   scheduleTitle.textContent=days.length===1?fmt(days[0]):`${fmt(days[0])} — ${fmt(days[days.length-1])}`;
   const hourLabels=Array.from({length:24},(_,h)=>`<div class="scheduleHourLabel">${String(h).padStart(2,"0")}:00</div>`).join("");
@@ -477,10 +490,17 @@ function renderSchedule(){
     return `<div class="scheduleDay ${iso===todayIso?"today":""}"><div class="scheduleDayHead">${fmtShort(iso)}</div><div class="scheduleDayBody">${rows}<div class="scheduleLanes">${lanesHtml}</div>${nowLine}</div></div>`;
   }).join("");
   scheduleGrid.innerHTML=`<div class="scheduleHours"><div class="scheduleDayHead"></div>${hourLabels}</div>${dayCols}`;
-  // Автоскролл: сразу показываем время "на час раньше текущего", а не всегда с полуночи —
-  // чтобы не листать вручную к актуальному участку дня при каждом открытии.
-  const scrollTargetMin=Math.max(0,nowMin-60);
-  scheduleGrid.scrollTop=(scrollTargetMin/60)*SCHEDULE_HOUR_PX;
+  // Автоскролл к "текущий час минус 1 час" — только при первом открытии вкладки или
+  // при переключении дня/фильтра, а НЕ при каждом фоновом обновлении данных (иначе
+  // сбивало бы ручной скролл пользователя каждые ~12 секунд). В остальных случаях
+  // восстанавливаем ту позицию, что была до перерисовки — innerHTML сам сбрасывает scrollTop.
+  if(scheduleShouldAutoscroll){
+    const scrollTargetMin=Math.max(0,nowMin-60);
+    scheduleGrid.scrollTop=(scrollTargetMin/60)*SCHEDULE_HOUR_PX;
+    scheduleShouldAutoscroll=false;
+  }else{
+    scheduleGrid.scrollTop=preservedScrollTop;
+  }
 }
 function fmtShort(iso){return new Intl.DateTimeFormat("ru-RU",{weekday:"short",day:"numeric",month:"short"}).format(new Date(iso+"T12:00:00"));}
 
@@ -519,6 +539,7 @@ document.querySelectorAll(".modeBtn").forEach(b=>b.onclick=()=>{
   if(workDirty&&calendarMode==="work"&&b.dataset.mode!=="work"&&!confirm("Есть несохранённые изменения. Выйти без сохранения?"))return;
   if(workDirty&&b.dataset.mode!=="work"){workDirty=false;syncWorkDraftFromServer();}
   calendarMode=b.dataset.mode;
+  if(calendarMode==="schedule")scheduleShouldAutoscroll=true;
   document.querySelectorAll(".modeBtn").forEach(x=>x.classList.toggle("active",x===b));
   renderAll();
 });
@@ -530,17 +551,24 @@ document.querySelectorAll(".navItem").forEach(b=>b.onclick=()=>{
   document.getElementById(b.dataset.view).classList.remove("hidden");
 });
 
-addEventBtn.onclick=()=>{
-  eventTitle.value="";
-  eventDate.value=selectedDate;
-  eventStart.value="";
-  eventEnd.value="";
+function openEventDialog(existing){
+  editingEventId=existing?existing.id:null;
+  eventDialogTitle.textContent=existing?"Событие":"Новое событие";
+  eventTitle.value=existing?existing.title:"";
+  eventDate.value=existing?existing.event_date:selectedDate;
+  eventStart.value=existing?existing.start_time.slice(0,5):"";
+  eventEnd.value=existing?existing.end_time.slice(0,5):"";
+  eventReminder.value=existing?.reminder_minutes!==null&&existing?.reminder_minutes!==undefined?String(existing.reminder_minutes):"";
   eventRepeat.value="";
   eventRepeatUntil.value="";
   eventRepeatUntilWrap.classList.add("hidden");
-  eventMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${m.id===me()?"checked":""}>${esc(m.display_name)}</label>`).join("");
+  // Менять правило повтора у уже существующей серии не поддерживаем — только у новых событий.
+  eventRepeatSection.classList.toggle("hidden",!!existing);
+  const myIds=existing?new Set(existing.participants.filter(p=>p.status!=="declined").map(p=>p.user_id)):new Set([me()]);
+  eventMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${myIds.has(m.id)?"checked":""}>${esc(m.display_name)}</label>`).join("");
   eventDialog.showModal();
-};
+}
+addEventBtn.onclick=()=>openEventDialog();
 
 eventRepeat.onchange=()=>{
   eventRepeatUntilWrap.classList.toggle("hidden",!eventRepeat.value);
@@ -551,26 +579,40 @@ eventForm.onsubmit=async e=>{
   const participantIds=[...document.querySelectorAll("#eventMembers input:checked")].map(x=>x.value);
   if(!participantIds.length)return alert("Выбери участника.");
   if(eventEnd.value<=eventStart.value)return alert("Проверь время.");
-  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,participantIds};
-  if(eventRepeat.value){
-    payload.repeat_type=eventRepeat.value;
-    if(eventRepeatUntil.value)payload.repeat_until=eventRepeatUntil.value;
+  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,participantIds,reminder_minutes:eventReminder.value===""?null:Number(eventReminder.value)};
+  if(editingEventId){
+    payload.id=editingEventId;
+    await act("update_event",payload);
+  }else{
+    if(eventRepeat.value){
+      payload.repeat_type=eventRepeat.value;
+      if(eventRepeatUntil.value)payload.repeat_until=eventRepeatUntil.value;
+    }
+    await act("create_event",payload);
   }
-  await act("create_event",payload);
   selectedDate=eventDate.value;
+  editingEventId=null;
   eventDialog.close();
 };
 
-function openSimple(mode,title){
+function openSimple(mode,title,existing){
   simpleMode=mode;
+  editingSimpleId=existing?existing.id:null;
   simpleTitle.textContent=title;
-  simpleInput.value="";
-  simpleMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${m.id===me()?"checked":""}>${esc(m.display_name)}</label>`).join("");
+  simpleInput.value=existing?existing.title:"";
+  const myIds=existing?new Set(existing.participants.filter(p=>p.status!=="declined").map(p=>p.user_id)):new Set([me()]);
+  simpleMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${myIds.has(m.id)?"checked":""}>${esc(m.display_name)}</label>`).join("");
   const schedule=document.getElementById("taskScheduleFields");
   schedule.classList.toggle("hidden",mode!=="tasks");
-  document.getElementById("taskDate").value=selectedDate||"";
-  document.getElementById("taskTime").value="";
-  document.getElementById("taskReminder").value="";
+  if(mode==="tasks"&&existing?.due_at){
+    const d=new Date(existing.due_at);
+    document.getElementById("taskDate").value=localISO(d);
+    document.getElementById("taskTime").value=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  }else{
+    document.getElementById("taskDate").value=selectedDate||"";
+    document.getElementById("taskTime").value="";
+  }
+  document.getElementById("taskReminder").value=existing?.reminder_minutes!==null&&existing?.reminder_minutes!==undefined?String(existing.reminder_minutes):"";
   simpleDialog.showModal();
 }
 addTaskBtn.onclick=()=>openSimple("tasks","Новое дело");
@@ -580,6 +622,7 @@ simpleForm.onsubmit=async e=>{
   const participantIds=[...document.querySelectorAll("#simpleMembers input:checked")].map(x=>x.value);
   if(!participantIds.length)return alert("Выбери участника.");
   const payload={title:simpleInput.value.trim(),participantIds};
+  if(editingSimpleId)payload.id=editingSimpleId;
   if(simpleMode==="tasks"){
     const dueDate=document.getElementById("taskDate").value;
     const dueTime=document.getElementById("taskTime").value;
@@ -596,7 +639,9 @@ simpleForm.onsubmit=async e=>{
       payload.due_at=local.toISOString();
     }else payload.due_at=null;
   }
-  await act(simpleMode==="tasks"?"create_task":"create_shopping",payload);
+  const action=editingSimpleId?(simpleMode==="tasks"?"update_task":"update_shopping"):(simpleMode==="tasks"?"create_task":"create_shopping");
+  await act(action,payload);
+  editingSimpleId=null;
   simpleDialog.close();
 };
 
@@ -619,11 +664,12 @@ settingsBtn.onclick=()=>{
   document.getElementById("spaceNameInput").value=state.space.name||"";
   renderColorSettings();
   document.getElementById("scheduleRange"+scheduleRange).checked=true;
-  const ns=state.notificationSettings||{notify_event:true,notify_task:true,notify_shopping:true,notify_completed:true};
+  const ns=state.notificationSettings||{notify_event:true,notify_task:true,notify_shopping:true,notify_completed:true,notify_reminders:true};
   document.getElementById("notifyEventToggle").checked=ns.notify_event!==false;
   document.getElementById("notifyTaskToggle").checked=ns.notify_task!==false;
   document.getElementById("notifyShoppingToggle").checked=ns.notify_shopping!==false;
   document.getElementById("notifyCompletedToggle").checked=ns.notify_completed!==false;
+  document.getElementById("notifyRemindersToggle").checked=ns.notify_reminders!==false;
   document.getElementById("settingsDialog").showModal();
 };
 document.getElementById("settingsForm").onsubmit=async e=>{
@@ -636,9 +682,10 @@ document.getElementById("settingsForm").onsubmit=async e=>{
   const notify_task=document.getElementById("notifyTaskToggle").checked;
   const notify_shopping=document.getElementById("notifyShoppingToggle").checked;
   const notify_completed=document.getElementById("notifyCompletedToggle").checked;
+  const notify_reminders=document.getElementById("notifyRemindersToggle").checked;
   const ns=state.notificationSettings||{};
-  if(ns.notify_event!==notify_event||ns.notify_task!==notify_task||ns.notify_shopping!==notify_shopping||ns.notify_completed!==notify_completed){
-    await act("save_notification_settings",{notify_event,notify_task,notify_shopping,notify_completed});
+  if(ns.notify_event!==notify_event||ns.notify_task!==notify_task||ns.notify_shopping!==notify_shopping||ns.notify_completed!==notify_completed||ns.notify_reminders!==notify_reminders){
+    await act("save_notification_settings",{notify_event,notify_task,notify_shopping,notify_completed,notify_reminders});
   }
   document.getElementById("settingsDialog").close();
   if(calendarMode==="schedule")renderSchedule();
