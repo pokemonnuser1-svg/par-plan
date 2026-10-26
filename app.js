@@ -13,11 +13,10 @@ let state=null;
 let viewMonth=new Date();
 let selectedDate=localISO(new Date());
 let simpleMode=null;
-let filters={tasks:"all",shopping:"all"};
 let busy=false;
 let calendarMode="plans";
+let plansSubMode="dated"; // dated | undated — подрежим внутри "Планов": календарь+день, или плоский список дел без даты
 let workViewFilter="all"; // all | mine | partner | overlap — что подсвечивать в режиме "Рабочие дни"
-let scheduleFilter="all"; // all | mine | partner — чью дорожку показывать в расписании
 let scheduleRange=Number(localStorage.getItem("parplan_schedule_range_v1")||3); // 1 | 3 | 7 — сколько дней показывать в расписании (настраивается)
 let scheduleAnchor=localISO(new Date()); // первый день видимого диапазона расписания
 let pendingDeleteEventId=null; // id события, для которого сейчас открыт диалог "удалить одно/серию"
@@ -88,22 +87,8 @@ async function act(action,data={}){
   }
 }
 
-function chips(x){
-  return x.participants.map(p=>{
-    const m=member(p.user_id);
-    const s=p.status==="joined"?"участвует":p.status==="invited"?"приглашён":"отказался";
-    return m?`<span class="chip ${p.status}">${esc(m.display_name)} · ${s}</span>`:"";
-  }).join("");
-}
-
-function partButtons(kind,x){
-  const p=x.participants.find(p=>p.user_id===me());
-  if(!p)return "";
-  const a=kind==="event"?"event_participation":kind==="task"?"task_participation":"shopping_participation";
-  if(p.status==="joined")return `<button class="miniBtn decline" data-part="${a}|${x.id}|declined">Отказаться</button>`;
-  if(p.status==="invited")return `<button class="miniBtn join" data-part="${a}|${x.id}|joined">✓ Присоединиться</button><button class="miniBtn decline" data-part="${a}|${x.id}|declined">✕ Отказаться</button>`;
-  return `<button class="miniBtn join" data-part="${a}|${x.id}|joined">Присоединиться</button>`;
-}
+// События/дела/покупки теперь общие для всех сразу — выбор участников,
+// подтверждение присоединения и чипы со статусами больше не нужны.
 
 /* ---------- КАЛЕНДАРЬ ---------- */
 
@@ -159,11 +144,11 @@ function renderCalendar(){
     b.className="day"+(other?" other":"");
 
     if(calendarMode==="plans"){
-      const ev=state.events.filter(e=>e.event_date===iso);
-      const ids=[...new Set(ev.flatMap(e=>e.participants.filter(p=>p.status!=="declined").map(p=>p.user_id)))].slice(0,4);
+      const hasEvents=state.events.some(e=>e.event_date===iso);
+      const hasTasks=state.tasks.some(t=>t.due_at&&localISO(new Date(t.due_at))===iso);
       if(iso===selectedDate)b.classList.add("selected");
       if(iso===localISO(new Date()))b.classList.add("today");
-      b.innerHTML=`<span>${d}</span><span class="dots">${ids.map(id=>`<i class="dot" style="background:${color(member(id))}"></i>`).join("")}</span>`;
+      b.innerHTML=`<span>${d}</span><span class="dots">${hasEvents||hasTasks?'<i class="dot dayDot"></i>':""}</span>`;
       b.onclick=()=>{
         selectedDate=iso;
         viewMonth=new Date(dt.getFullYear(),dt.getMonth(),1);
@@ -254,13 +239,34 @@ function bindWorkPointer(btn,iso){
 function renderEvents(){
   selectedDateTitle.textContent=fmt(selectedDate);
   seriesBanners.innerHTML=(state.expiringSeries||[]).map(s=>`<div class="seriesBanner"><span>🔁 «${esc(s.title)}» — серия скоро закончится</span><button data-extend-series="${s.id}">Продлить</button></div>`).join("");
-  const a=state.events.filter(e=>e.event_date===selectedDate).sort((a,b)=>a.start_time.localeCompare(b.start_time));
-  eventsList.innerHTML=a.map(e=>`<div class="event"><div class="eventTime">${e.start_time.slice(0,5)}<br><span class="muted">${e.end_time.slice(0,5)}</span></div><div class="eventBody"><div class="eventTitle">${esc(e.title)}${e.series_id?' <span class="muted">↻</span>':""}</div><div class="chips">${chips(e)}</div><div class="rowActions">${partButtons("event",e)}</div></div>${e.created_by===me()?`<button class="editBtn" data-edit-event="${e.id}">✎</button><button class="deleteBtn" data-del-event="${e.id}" data-series="${e.series_id||""}">×</button>`:""}</div>`).join("");
-  eventsEmpty.style.display=a.length?"none":"block";
+
+  const events=state.events.filter(e=>e.event_date===selectedDate);
+  const tasksOfDay=state.tasks.filter(t=>t.due_at&&localISO(new Date(t.due_at))===selectedDate);
+
+  // Единый список на день: события и дела с датой вместе, отсортированные по времени начала.
+  const dayItems=[
+    ...events.map(e=>({kind:"event",time:e.start_time,sortKey:e.start_time,data:e})),
+    ...tasksOfDay.map(t=>{
+      const d=new Date(t.due_at);
+      const hh=String(d.getHours()).padStart(2,"0"),mm=String(d.getMinutes()).padStart(2,"0");
+      return {kind:"task",time:`${hh}:${mm}`,sortKey:`${hh}:${mm}:00`,data:t};
+    })
+  ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+
+  eventsList.innerHTML=dayItems.map(item=>{
+    if(item.kind==="event"){
+      const e=item.data;
+      return `<div class="event"><div class="eventTime">${e.start_time.slice(0,5)}<br><span class="muted">${e.end_time.slice(0,5)}</span></div><div class="eventBody"><div class="eventTitle">📅 ${esc(e.title)}${e.series_id?' <span class="muted">↻</span>':""}</div></div>${e.created_by===me()?`<button class="editBtn" data-edit-event="${e.id}">✎</button><button class="deleteBtn" data-del-event="${e.id}" data-series="${e.series_id||""}">×</button>`:""}</div>`;
+    }else{
+      const t=item.data;
+      return `<div class="event ${t.is_completed?"done":""}"><div class="eventTime">${item.time}</div><div class="eventBody"><div class="eventTitle"><input type="checkbox" ${t.is_completed?"checked":""} data-toggle="tasks|${t.id}"> 📌 ${esc(t.title)}</div>${t.reminder_minutes!==null&&t.reminder_minutes!==undefined?`<div class="dueMeta">🔔 ${t.reminder_minutes===0?"в момент":"за "+t.reminder_minutes+" мин."}</div>`:""}</div>${t.created_by===me()?`<button class="editBtn" data-edit="tasks|${t.id}">✎</button><button class="deleteBtn" data-del="tasks|${t.id}">×</button>`:""}</div>`;
+    }
+  }).join("");
+  eventsEmpty.style.display=dayItems.length?"none":"block";
+
   let n=0;
-  for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
-    const common=a[i].participants.filter(p=>p.status==="joined").some(p=>a[j].participants.some(q=>q.status==="joined"&&q.user_id===p.user_id));
-    if(common&&a[i].start_time<a[j].end_time&&a[j].start_time<a[i].end_time)n++;
+  for(let i=0;i<events.length;i++)for(let j=i+1;j<events.length;j++){
+    if(events[i].start_time<events[j].end_time&&events[j].start_time<events[i].end_time)n++;
   }
   if(n){overlapWarning.textContent=`⚠️ Есть пересекающиеся события: ${n}`;overlapWarning.classList.remove("hidden");}
   else overlapWarning.classList.add("hidden");
@@ -345,35 +351,13 @@ function renderMembers(){
   membersList.innerHTML=state.members.map(m=>`<div class="memberRow"><div class="memberAvatar" style="background:${color(m)}">${esc((m.display_name||"?")[0])}</div><div><strong>${esc(m.display_name)}</strong><div class="muted">${m.id===me()?"Вы":m.role==="owner"?"Создатель":"Участник"}</div></div></div>`).join("");
 }
 
-function filtered(type){
-  const f=filters[type];
-  return state[type].filter(x=>{
-    const joined=x.participants.filter(p=>p.status==="joined").map(p=>p.user_id);
-    if(f==="all")return true;
-    if(f==="mine")return x.created_by===me();
-    if(f==="other")return x.created_by!==me();
-    if(f==="common")return joined.includes(me())&&joined.some(id=>id!==me());
-    return true;
-  });
-}
-
-function renderRows(type,list,empty,filterBox){
-  filterBox.innerHTML=[["all","Все"],["mine","Моё"],["other","Других"],["common","Общее"]].map(([v,t])=>`<button class="filterBtn ${filters[type]===v?"active":""}" data-filter="${type}|${v}">${t}</button>`).join("");
-  const a=filtered(type);
-  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatDueAt(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}<div class="rowMeta">${chips(x)}</div><div class="rowActions">${partButtons(type==="tasks"?"task":"shopping",x)}</div></div>${x.created_by===me()?`<button class="editBtn" data-edit="${type}|${x.id}">✎</button><button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
+function renderRows(type,list,empty,items){
+  const a=items||state[type];
+  list.innerHTML=a.map(x=>`<div class="rowItem ${x.is_completed?"done":""}"><input type="checkbox" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}"><div class="rowText"><div>${esc(x.title)}</div>${type==="tasks"&&x.due_at?`<div class="dueMeta">⏰ ${formatDueAt(x.due_at)}${x.reminder_minutes!==null&&x.reminder_minutes!==undefined?` · 🔔 ${x.reminder_minutes===0?"в момент":"за "+x.reminder_minutes+" мин."}`:""}</div>`:""}</div>${x.created_by===me()?`<button class="editBtn" data-edit="${type}|${x.id}">✎</button><button class="deleteBtn" data-del="${type}|${x.id}">×</button>`:""}</div>`).join("");
   empty.style.display=a.length?"none":"block";
 }
 
 function bind(){
-  document.querySelectorAll("[data-part]").forEach(b=>b.onclick=()=>{const[a,id,status]=b.dataset.part.split("|");act(a,{id,status});});
-  // Фильтры задач/покупок используют формат "tasks|all".
-  // Рабочие дни имеют свой обработчик ниже, поэтому их здесь не перехватываем.
-  document.querySelectorAll(".filterBtn[data-filter]").forEach(b=>b.onclick=()=>{
-    const [t,f]=b.dataset.filter.split("|");
-    if(!t||!f)return;
-    filters[t]=f;
-    renderAll();
-  });
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onchange=()=>{const[t,id]=b.dataset.toggle.split("|");act(t==="tasks"?"toggle_task":"toggle_shopping",{id,is_completed:b.checked});});
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const[t,id]=b.dataset.del.split("|");act(t==="tasks"?"delete_task":"delete_shopping",{id});});
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
@@ -463,28 +447,18 @@ function renderSchedule(){
   const nowMin=new Date().getHours()*60+new Date().getMinutes();
   const todayIso=localISO(new Date());
   const dayCols=days.map(iso=>{
-    const items=scheduleItemsForDay(iso).map(it=>{
-      const mine=it.participants.some(p=>p.status==="joined"&&p.user_id===me());
-      const isPartner=it.participants.some(p=>p.status==="joined"&&p.user_id!==me());
-      return {...it,mine,isPartner};
-    });
-    const showMineLane=scheduleFilter==="all"||scheduleFilter==="mine";
-    const showPartnerLane=scheduleFilter==="all"||scheduleFilter==="partner";
-    const renderBlocks=(cls,filterFn)=>{
-      const laid=layoutOverlaps(items.filter(filterFn));
-      return laid.map(it=>{
-        const top=(it.start/60)*SCHEDULE_HOUR_PX;
-        const h=Math.max(((it.end-it.start)/60)*SCHEDULE_HOUR_PX,SCHEDULE_MIN_BLOCK_PX);
-        const widthPct=100/it.colCount,leftPct=widthPct*it.col;
-        const timeLabel=`${String(Math.floor(it.start/60)).padStart(2,"0")}:${String(it.start%60).padStart(2,"0")}`;
-        const compact=h<SCHEDULE_MIN_BLOCK_PX+8; // мало места — прячем время, оставляем только название
-        return `<div class="scheduleBlock ${cls}" style="top:${top}px;height:${h}px;left:${leftPct}%;width:calc(${widthPct}% - 2px)"><b>${esc(it.title)}</b>${compact?"":timeLabel}</div>`;
-      }).join("");
-    };
-    const lanesHtml=[
-      showMineLane?`<div class="scheduleLane">${renderBlocks("mine",it=>it.mine)}</div>`:"",
-      showPartnerLane?`<div class="scheduleLane">${renderBlocks("partner",it=>it.isPartner)}</div>`:""
-    ].join("");
+    // Всё теперь общее — одна дорожка со всеми делами/событиями дня, без деления по людям.
+    const items=scheduleItemsForDay(iso);
+    const laid=layoutOverlaps(items);
+    const blocks=laid.map(it=>{
+      const top=(it.start/60)*SCHEDULE_HOUR_PX;
+      const h=Math.max(((it.end-it.start)/60)*SCHEDULE_HOUR_PX,SCHEDULE_MIN_BLOCK_PX);
+      const widthPct=100/it.colCount,leftPct=widthPct*it.col;
+      const timeLabel=`${String(Math.floor(it.start/60)).padStart(2,"0")}:${String(it.start%60).padStart(2,"0")}`;
+      const compact=h<SCHEDULE_MIN_BLOCK_PX+8; // мало места — прячем время, оставляем только название
+      return `<div class="scheduleBlock mine" style="top:${top}px;height:${h}px;left:${leftPct}%;width:calc(${widthPct}% - 2px)"><b>${esc(it.title)}</b>${compact?"":timeLabel}</div>`;
+    }).join("");
+    const lanesHtml=`<div class="scheduleLane">${blocks}</div>`;
     const nowLine=iso===todayIso?`<div class="scheduleNow" style="top:${(nowMin/60)*SCHEDULE_HOUR_PX}px"></div>`:"";
     const rows=Array.from({length:24},()=>`<div class="scheduleHourRow"></div>`).join("");
     return `<div class="scheduleDay ${iso===todayIso?"today":""}"><div class="scheduleDayHead">${fmtShort(iso)}</div><div class="scheduleDayBody">${rows}<div class="scheduleLanes">${lanesHtml}</div>${nowLine}</div></div>`;
@@ -507,16 +481,27 @@ function fmtShort(iso){return new Intl.DateTimeFormat("ru-RU",{weekday:"short",d
 function renderAll(){
   if(!state)return;
   spaceTitle.textContent=state.space.name;
-  monthCard.classList.toggle("hidden",calendarMode==="schedule");
+  const inPlansDated=calendarMode==="plans"&&plansSubMode==="dated";
+  monthCard.classList.toggle("hidden",calendarMode==="schedule"||(calendarMode==="plans"&&plansSubMode==="undated"));
   plansPanel.classList.toggle("hidden",calendarMode!=="plans");
   workPanel.classList.toggle("hidden",calendarMode!=="work");
   schedulePanel.classList.toggle("hidden",calendarMode!=="schedule");
-  if(calendarMode==="schedule")renderSchedule();else renderCalendar();
-  renderEvents();
+  if(calendarMode==="plans"){
+    plansDatedCard.classList.toggle("hidden",plansSubMode!=="dated");
+    plansUndatedCard.classList.toggle("hidden",plansSubMode!=="undated");
+    document.querySelectorAll(".plansSubBtn").forEach(b=>b.classList.toggle("active",b.dataset.psub===plansSubMode));
+  }
+  if(calendarMode==="schedule")renderSchedule();else if(calendarMode==="work"||inPlansDated)renderCalendar();
+  if(inPlansDated)renderEvents();
+  if(calendarMode==="plans"&&plansSubMode==="undated")renderUndatedTasks();
   renderMembers();
-  renderRows("tasks",tasksList,tasksEmpty,tasksFilters);
-  renderRows("shopping",shoppingList,shoppingEmpty,shoppingFilters);
+  renderRows("shopping",shoppingList,shoppingEmpty);
   bind();
+}
+
+function renderUndatedTasks(){
+  const items=state.tasks.filter(t=>!t.due_at);
+  renderRows("tasks",undatedList,undatedEmpty,items);
 }
 
 prevMonth.onclick=()=>{
@@ -564,11 +549,11 @@ function openEventDialog(existing){
   eventRepeatUntilWrap.classList.add("hidden");
   // Менять правило повтора у уже существующей серии не поддерживаем — только у новых событий.
   eventRepeatSection.classList.toggle("hidden",!!existing);
-  const myIds=existing?new Set(existing.participants.filter(p=>p.status!=="declined").map(p=>p.user_id)):new Set([me()]);
-  eventMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${myIds.has(m.id)?"checked":""}>${esc(m.display_name)}</label>`).join("");
   eventDialog.showModal();
 }
-addEventBtn.onclick=()=>openEventDialog();
+addEventBtn.onclick=()=>addTypeDialog.showModal();
+addTypeEventBtn.onclick=()=>{addTypeDialog.close();openEventDialog();};
+addTypeTaskBtn.onclick=()=>{addTypeDialog.close();openSimple("tasks","Новое дело");};
 
 eventRepeat.onchange=()=>{
   eventRepeatUntilWrap.classList.toggle("hidden",!eventRepeat.value);
@@ -576,10 +561,8 @@ eventRepeat.onchange=()=>{
 
 eventForm.onsubmit=async e=>{
   e.preventDefault();
-  const participantIds=[...document.querySelectorAll("#eventMembers input:checked")].map(x=>x.value);
-  if(!participantIds.length)return alert("Выбери участника.");
   if(eventEnd.value<=eventStart.value)return alert("Проверь время.");
-  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,participantIds,reminder_minutes:eventReminder.value===""?null:Number(eventReminder.value)};
+  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,reminder_minutes:eventReminder.value===""?null:Number(eventReminder.value)};
   if(editingEventId){
     payload.id=editingEventId;
     await act("update_event",payload);
@@ -600,8 +583,6 @@ function openSimple(mode,title,existing){
   editingSimpleId=existing?existing.id:null;
   simpleTitle.textContent=title;
   simpleInput.value=existing?existing.title:"";
-  const myIds=existing?new Set(existing.participants.filter(p=>p.status!=="declined").map(p=>p.user_id)):new Set([me()]);
-  simpleMembers.innerHTML=state.members.map(m=>`<label class="checkItem"><input type="checkbox" value="${m.id}" ${myIds.has(m.id)?"checked":""}>${esc(m.display_name)}</label>`).join("");
   const schedule=document.getElementById("taskScheduleFields");
   schedule.classList.toggle("hidden",mode!=="tasks");
   if(mode==="tasks"&&existing?.due_at){
@@ -615,13 +596,16 @@ function openSimple(mode,title,existing){
   document.getElementById("taskReminder").value=existing?.reminder_minutes!==null&&existing?.reminder_minutes!==undefined?String(existing.reminder_minutes):"";
   simpleDialog.showModal();
 }
-addTaskBtn.onclick=()=>openSimple("tasks","Новое дело");
+addUndatedBtn.onclick=()=>openSimple("tasks","Новое дело");
 addShoppingBtn.onclick=()=>openSimple("shopping","Новая покупка");
+
+document.querySelectorAll(".plansSubBtn").forEach(b=>b.onclick=()=>{
+  plansSubMode=b.dataset.psub;
+  renderAll();
+});
 simpleForm.onsubmit=async e=>{
   e.preventDefault();
-  const participantIds=[...document.querySelectorAll("#simpleMembers input:checked")].map(x=>x.value);
-  if(!participantIds.length)return alert("Выбери участника.");
-  const payload={title:simpleInput.value.trim(),participantIds};
+  const payload={title:simpleInput.value.trim()};
   if(editingSimpleId)payload.id=editingSimpleId;
   if(simpleMode==="tasks"){
     const dueDate=document.getElementById("taskDate").value;
@@ -702,11 +686,6 @@ document.querySelectorAll(".workFilterBtn").forEach(b=>b.onclick=()=>{
 clearWorkSelectionBtn.onclick=()=>{workSelection.clear();renderCalendar();};
 saveWorkBtn.onclick=saveWorkDays;
 
-document.querySelectorAll(".scheduleFilterBtn").forEach(b=>b.onclick=()=>{
-  scheduleFilter=b.dataset.sfilter;
-  document.querySelectorAll(".scheduleFilterBtn").forEach(x=>x.classList.toggle("active",x===b));
-  renderSchedule();
-});
 function shiftSchedule(dir){
   const d=new Date(scheduleAnchor+"T12:00:00");
   d.setDate(d.getDate()+dir*scheduleRange);
