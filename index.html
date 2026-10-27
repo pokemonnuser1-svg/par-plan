@@ -2,33 +2,60 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>parplan</title>
-<link rel="stylesheet" href="style.css?v=20260906">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f24">
+<title>ParPlan</title>
+<link rel="stylesheet" href="style.css?v=20261027">
 </head>
 <body>
 <div class="app">
+
   <header class="top">
-    <div>
-      <div class="eyebrow">TELEGRAM MINI APP</div>
-      <h1 id="spaceTitle">Мои планы</h1>
-      <div id="syncStatus" class="muted">Подключение…</div>
+    <div class="brand">
+      <span class="logo" data-icon="logo"></span>
+      <div>
+        <h1>ParPlan</h1>
+        <div class="sub"><span id="spaceTitle">Мои планы</span> · <span id="syncStatus">Подключение…</span></div>
+      </div>
     </div>
-    <button id="settingsBtn" class="iconBtn" aria-label="Настройки">⚙</button>
+    <button id="profileBtn" class="profileBtn" aria-label="Профиль"></button>
   </header>
 
-  <section id="calendarView">
-    <div class="modeSwitch">
-      <button class="modeBtn active" data-mode="plans">Планы</button>
-      <button class="modeBtn" data-mode="schedule">Расписание</button>
-      <button class="modeBtn" data-mode="work">Рабочие дни</button>
+  <!-- СЕГОДНЯ -->
+  <section id="todayView">
+    <div class="hello">
+      <div id="todayDate" class="helloDate"></div>
+      <h2 class="helloTitle"><span id="todayGreeting">Здравствуйте!</span> <span class="wave">👋</span></h2>
+      <div id="todaySummary" class="helloSub"></div>
+    </div>
+    <div id="todayTiles" class="tiles"></div>
+    <div class="secHead"><h3>Ближайшие события</h3><button class="linkBtn" data-go="calendarView|month">Все ›</button></div>
+    <div id="todayEvents" class="list"></div>
+    <div class="secHead"><h3>Задачи на сегодня</h3><button class="linkBtn" data-go="orgView|tasks">Все ›</button></div>
+    <div id="todayTasks" class="list"></div>
+  </section>
+
+  <!-- КАЛЕНДАРЬ -->
+  <section id="calendarView" class="hidden">
+    <div class="viewHead">
+      <div class="vhLeft">
+        <button id="calBackBtn" class="backBtn hidden" data-icon="back" aria-label="Назад"></button>
+        <h2 id="calHeadTitle">Календарь</h2>
+      </div>
+      <button id="workModeBtn" class="iconBtn" data-icon="briefcase" aria-label="Рабочие дни"></button>
     </div>
 
-    <section id="monthCard" class="card compact">
-      <div class="sectionHead">
-        <button id="prevMonth" class="roundBtn" aria-label="Предыдущий месяц">‹</button>
-        <h2 id="monthTitle"></h2>
-        <button id="nextMonth" class="roundBtn" aria-label="Следующий месяц">›</button>
+    <div id="calSwitch" class="seg">
+      <button class="segBtn calViewBtn active" data-cview="month">Месяц</button>
+      <button class="segBtn calViewBtn" data-cview="week">Неделя</button>
+      <button class="segBtn calViewBtn" data-cview="day">День</button>
+    </div>
+
+    <section id="monthCard" class="card">
+      <div class="monthHead">
+        <button id="prevMonth" class="roundBtn" data-icon="back" aria-label="Предыдущий месяц"></button>
+        <h3 id="monthTitle"></h3>
+        <button id="nextMonth" class="roundBtn" data-icon="chevron" aria-label="Следующий месяц"></button>
       </div>
       <div class="weekdays"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
       <div id="workFilterSwitch" class="workFilterSwitch hidden">
@@ -38,7 +65,12 @@
         <button type="button" class="workFilterBtn" data-filter="overlap">Общие выходные</button>
       </div>
       <div id="calendar" class="calendar"></div>
-      <div id="workLegend" class="workLegend hidden">
+      <div id="monthLegend" class="legendRow">
+        <span><i class="legendDot ev"></i>События</span>
+        <span><i class="legendDot tk"></i>Задачи</span>
+        <span><i class="legendDot wk"></i>Рабочие дни</span>
+      </div>
+      <div id="workLegend" class="legendRow hidden">
         <span><i class="legendDot mine"></i>Вы</span>
         <span><i class="legendDot partner"></i>Партнёр</span>
         <span><i class="legendDot overlap"></i>Оба заняты</span>
@@ -46,92 +78,186 @@
       </div>
     </section>
 
-    <section id="plansPanel">
-      <div id="plansSubSwitch" class="workFilterSwitch">
-        <button type="button" class="plansSubBtn active" data-psub="dated">По датам</button>
-        <button type="button" class="plansSubBtn" data-psub="undated">Без даты</button>
+    <section id="monthDayCard">
+      <div class="secHead"><h3 id="selectedDateTitle"></h3></div>
+      <div id="seriesBanners"></div>
+      <div id="overlapWarning" class="warning hidden"></div>
+      <div id="eventsList" class="list"></div>
+      <div id="eventsEmpty" class="empty">На этот день ничего нет</div>
+    </section>
+
+    <section id="weekPanel" class="hidden">
+      <div class="navRow">
+        <button id="weekPrev" class="roundBtn" data-icon="back" aria-label="Предыдущая неделя"></button>
+        <h3 id="weekTitle"></h3>
+        <button id="weekNext" class="roundBtn" data-icon="chevron" aria-label="Следующая неделя"></button>
       </div>
-      <section id="plansDatedCard" class="card">
-        <div class="sectionHead">
-          <div><div class="muted">Выбранный день</div><h2 id="selectedDateTitle"></h2></div>
-          <button id="addEventBtn" class="smallPrimary">＋ Добавить</button>
-        </div>
-        <div id="seriesBanners"></div>
-        <div id="overlapWarning" class="warning hidden"></div>
-        <div id="eventsList" class="list"></div>
-        <div id="eventsEmpty" class="empty">На этот день ничего нет</div>
-      </section>
-      <section id="plansUndatedCard" class="card hidden">
-        <div class="sectionHead">
-          <h2>Без даты</h2>
-          <button id="addUndatedBtn" class="smallPrimary">＋ Добавить</button>
-        </div>
-        <div id="undatedList" class="list"></div>
-        <div id="undatedEmpty" class="empty">Дел без даты нет</div>
-      </section>
+      <div id="weekList"></div>
     </section>
 
-    <section id="schedulePanel" class="hidden">
-      <section class="card">
-        <div class="sectionHead">
-          <button id="schedulePrev" class="roundBtn" aria-label="Раньше">‹</button>
-          <h2 id="scheduleTitle"></h2>
-          <button id="scheduleNext" class="roundBtn" aria-label="Позже">›</button>
-        </div>
-        <div id="scheduleGrid" class="scheduleGrid"></div>
-      </section>
+    <section id="dayPanel" class="hidden">
+      <div class="navRow">
+        <button id="schedulePrev" class="roundBtn" data-icon="back" aria-label="Предыдущий день"></button>
+        <h3 id="scheduleTitle"></h3>
+        <button id="scheduleNext" class="roundBtn" data-icon="chevron" aria-label="Следующий день"></button>
+      </div>
+      <div id="scheduleGrid" class="scheduleGrid"></div>
     </section>
 
-    <section id="workPanel" class="hidden">
-      <section class="card">
-        <div class="sectionHead">
-          <div>
-            <div class="muted">Рабочий график</div>
-            <h2>Отметьте свои рабочие дни</h2>
-          </div>
-          <button id="clearWorkSelectionBtn" class="textBtn">Снять выбор</button>
+    <section id="workPanel" class="card hidden">
+      <div class="sectionHead">
+        <div>
+          <div class="muted">Рабочий график</div>
+          <h3>Отметьте свои рабочие дни</h3>
         </div>
-
-        <div class="workHint">Нажмите на день или зажмите и проведите по нескольким дням, затем выберите действие.</div>
-
-        <div id="workSelectionBar" class="workSelectionBar hidden">
-          <strong id="workSelectionCount">Выбрано: 0</strong>
-          <div class="workActions">
-            <button id="markWorkBtn" class="miniBtn workAction">Я работаю</button>
-            <button id="markWeekendBtn" class="miniBtn weekendAction">Выходной</button>
-          </div>
+        <button id="clearWorkSelectionBtn" class="textBtn">Снять выбор</button>
+      </div>
+      <div class="workHint">Нажмите на день или зажмите и проведите по нескольким дням, затем выберите действие.</div>
+      <div id="workSelectionBar" class="workSelectionBar hidden">
+        <strong id="workSelectionCount">Выбрано: 0</strong>
+        <div class="workActions">
+          <button id="markWorkBtn" class="miniBtn workAction">Я работаю</button>
+          <button id="markWeekendBtn" class="miniBtn weekendAction">Выходной</button>
         </div>
-
-        <div class="workStats">
-          <div class="statCard"><span class="statDot mine"></span><div><b>Вы</b><small id="myWorkCount">0 дней</small></div></div>
-          <div class="statCard"><span class="statDot partner"></span><div><b id="partnerWorkName">Партнёр</b><small id="partnerWorkCount">0 дней</small></div></div>
-          <div class="statCard"><span class="statDot overlap"></span><div><b>Оба работают</b><small id="overlapWorkCount">0 дней</small></div></div>
-          <div class="statCard"><span class="statDot free"></span><div><b>Общие выходные</b><small id="commonFreeCount">0 дней</small></div></div>
-        </div>
-
-        <button id="saveWorkBtn" class="primary" disabled>Сохранить изменения</button>
-        <div id="workSaveInfo" class="saveInfo">Изменений пока нет</div>
-      </section>
+      </div>
+      <div class="workStats">
+        <div class="statCard"><span class="statDot mine"></span><div><b>Вы</b><small id="myWorkCount">0 дней</small></div></div>
+        <div class="statCard"><span class="statDot partner"></span><div><b id="partnerWorkName">Партнёр</b><small id="partnerWorkCount">0 дней</small></div></div>
+        <div class="statCard"><span class="statDot overlap"></span><div><b>Оба работают</b><small id="overlapWorkCount">0 дней</small></div></div>
+        <div class="statCard"><span class="statDot free"></span><div><b>Общие выходные</b><small id="commonFreeCount">0 дней</small></div></div>
+      </div>
+      <button id="saveWorkBtn" class="primary" disabled>Сохранить изменения</button>
+      <div id="workSaveInfo" class="saveInfo">Изменений пока нет</div>
     </section>
   </section>
 
-  <section id="shoppingView" class="hidden"><section class="card"><div class="sectionHead"><h2>Покупки</h2><button id="addShoppingBtn" class="smallPrimary">＋ Добавить</button></div><div id="shoppingList" class="list"></div><div id="shoppingEmpty" class="empty">Список покупок пуст</div></section></section>
-  <section id="peopleView" class="hidden"><section class="card"><div class="sectionHead"><h2>Участники</h2><span id="memberCount" class="badge"></span></div><div id="membersList" class="membersList"></div><button id="inviteBtn" class="primary">＋ Пригласить участника</button><p class="hint">После перехода по приглашению человек появится здесь автоматически. Имя берётся из Telegram.</p></section></section>
+  <!-- ОРГАНИЗАЦИЯ -->
+  <section id="orgView" class="hidden">
+    <div class="viewHead"><h2>Организация</h2></div>
+    <div class="chipRow">
+      <button class="orgChip active" data-ofilter="all">Все</button>
+      <button class="orgChip" data-ofilter="tasks">Задачи</button>
+      <button class="orgChip" data-ofilter="shopping">Покупки</button>
+      <button class="orgChip" data-ofilter="recurring">Повторяющиеся</button>
+    </div>
+    <form id="shopAddRow" class="addRow hidden">
+      <input id="shopAddInput" placeholder="Добавить товар…" autocomplete="off">
+      <button class="addBtn" type="submit" data-icon="plus" aria-label="Добавить"></button>
+    </form>
+    <div id="orgContent"></div>
+  </section>
+
+  <!-- ПРОФИЛЬ -->
+  <section id="profileView" class="hidden">
+    <div class="viewHead">
+      <div class="vhLeft">
+        <button id="profileBack" class="backBtn" data-icon="back" aria-label="Назад"></button>
+        <h2>Профиль</h2>
+      </div>
+    </div>
+    <div class="card profileCard">
+      <div id="profileAvatarBig"></div>
+      <div><div id="profileName" class="pName"></div><div class="muted">Участник</div></div>
+    </div>
+    <div class="card">
+      <div class="secHead flat"><h3>Семья и участники</h3><span id="memberCount" class="badge"></span></div>
+      <div id="membersList" class="membersList"></div>
+      <button id="inviteBtn" class="menuRow">
+        <span class="mIc" data-icon="plus"></span><span class="mTxt">Пригласить</span><span class="mArrow" data-icon="chevron"></span>
+      </button>
+      <p class="hint">После перехода по приглашению человек появится здесь автоматически. Имя берётся из Telegram.</p>
+    </div>
+    <div class="card menu">
+      <button class="menuRow js-open-settings">
+        <span class="mIc" data-icon="bell"></span><span class="mTxt">Уведомления</span><span id="notifSummary" class="mVal"></span><span class="mArrow" data-icon="chevron"></span>
+      </button>
+      <button id="rowWork" class="menuRow">
+        <span class="mIc" data-icon="briefcase"></span><span class="mTxt">Рабочие дни</span><span class="mVal">График</span><span class="mArrow" data-icon="chevron"></span>
+      </button>
+      <button class="menuRow js-open-settings">
+        <span class="mIc" data-icon="palette"></span><span class="mTxt">Название и цвета</span><span class="mArrow" data-icon="chevron"></span>
+      </button>
+      <button id="rowSync" class="menuRow">
+        <span class="mIc" data-icon="repeat"></span><span class="mTxt">Синхронизация</span><span id="rowSyncVal" class="mVal"></span>
+      </button>
+      <div class="menuRow static">
+        <span class="mIc" data-icon="info"></span><span class="mTxt">О приложении</span><span class="mVal">v2.0</span>
+      </div>
+    </div>
+  </section>
 </div>
 
+<button id="fab" class="fab" data-icon="plus" aria-label="Добавить"></button>
+
 <nav class="bottomNav">
-  <button class="navItem active" data-view="calendarView">📅<span>Календарь</span></button>
-  <button class="navItem" data-view="shoppingView">🛒<span>Покупки</span></button>
-  <button class="navItem" data-view="peopleView">👥<span>Люди</span></button>
+  <button class="navItem active" data-view="todayView"><span data-icon="home"></span><span class="nl">Сегодня</span></button>
+  <button class="navItem" data-view="calendarView"><span data-icon="calendar"></span><span class="nl">Календарь</span></button>
+  <button class="navItem" data-view="orgView"><span data-icon="list"></span><span class="nl">Организация</span></button>
 </nav>
 
-<dialog id="addTypeDialog"><div class="dialogHead"><h2>Что добавить?</h2><button type="button" class="closeBtn" data-close="addTypeDialog">×</button></div><div class="dialogActions"><button id="addTypeEventBtn" class="secondary">📅 Событие</button><button id="addTypeTaskBtn" class="secondary">📌 Дело</button></div></dialog>
-<dialog id="eventDialog"><form id="eventForm"><div class="dialogHead"><h2 id="eventDialogTitle">Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div><label>Название<input id="eventTitle" required></label><label>Дата<input id="eventDate" type="date" required></label><div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div><label>Напомнить<select id="eventReminder"><option value="">Без напоминания</option><option value="0">В момент начала</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label><div id="eventRepeatSection"><div class="fieldTitle">Повтор</div><select id="eventRepeat"><option value="">Не повторять</option><option value="weekly">Каждую неделю</option><option value="monthly">Каждый месяц</option><option value="yearly">Каждый год (день рождения и т.п.)</option></select><label id="eventRepeatUntilWrap" class="hidden">До какой даты (необязательно)<input id="eventRepeatUntil" type="date"></label></div><button class="primary" type="submit">Сохранить</button></form></dialog>
-<dialog id="deleteSeriesDialog"><div class="dialogHead"><h2>Удалить событие</h2><button type="button" class="closeBtn" data-close="deleteSeriesDialog">×</button></div><p class="hint">Это событие повторяется. Что удалить?</p><div class="dialogActions"><button id="deleteOneBtn" class="secondary">Только это</button><button id="deleteSeriesBtn" class="danger">Всю серию</button></div></dialog>
-<dialog id="simpleDialog"><form id="simpleForm"><div class="dialogHead"><h2 id="simpleTitle">Добавить</h2><button type="button" class="closeBtn" data-close="simpleDialog">×</button></div><label>Название<input id="simpleInput" required></label><div id="taskScheduleFields" class="taskSchedule hidden"><div class="fieldTitle">Время выполнения и напоминание</div><label>Дата<input id="taskDate" type="date"></label><label>Время<input id="taskTime" type="time"></label><label>Напомнить<select id="taskReminder"><option value="">Без напоминания</option><option value="0">В момент</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label><p class="hint">Для напоминания укажи дату и время.</p></div><button class="primary" type="submit">Добавить</button></form></dialog>
+<dialog id="addTypeDialog">
+  <div class="dlgBody">
+    <div class="dialogHead"><h2>Что добавить?</h2><button type="button" class="closeBtn" data-close="addTypeDialog">×</button></div>
+    <button id="addTypeEventBtn" class="stackBtn"><span class="ri ev" data-icon="calendar"></span>Событие</button>
+    <button id="addTypeTaskBtn" class="stackBtn"><span class="ri tk" data-icon="check"></span>Дело</button>
+    <button id="addTypeShopBtn" class="stackBtn"><span class="ri sh" data-icon="cart"></span>Покупка</button>
+  </div>
+</dialog>
 
-<dialog id="settingsDialog"><form id="settingsForm"><div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div><label>Название пространства<input id="spaceNameInput" required></label><div class="fieldTitle">Цвета участников</div><p class="hint">Цвета сохраняются только у вас и не синхронизируются с другими участниками.</p><div id="colorSettingsList" class="colorSettingsList"></div><div class="fieldTitle">Расписание по часам</div><p class="hint">Сколько дней показывать во вкладке «Расписание».</p><div class="checkList"><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange1" value="1">1 день</label><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange3" value="3">3 дня</label><label class="checkItem"><input type="radio" name="scheduleRange" id="scheduleRange7" value="7">Неделя</label></div><div class="fieldTitle">Уведомления</div><p class="hint">Присылать сообщение в Telegram, когда партнёр что-то создаёт.</p><div class="checkList"><label class="checkItem"><input type="checkbox" id="notifyEventToggle">Новые события</label><label class="checkItem"><input type="checkbox" id="notifyTaskToggle">Новые дела</label><label class="checkItem"><input type="checkbox" id="notifyShoppingToggle">Новые покупки</label><label class="checkItem"><input type="checkbox" id="notifyCompletedToggle">Выполненные дела и покупки</label><label class="checkItem"><input type="checkbox" id="notifyRemindersToggle">Напоминания по времени (дела и события)</label></div><button class="primary" type="submit">Сохранить</button></form></dialog>
+<dialog id="eventDialog"><form id="eventForm">
+  <div class="dialogHead"><h2 id="eventDialogTitle">Новое событие</h2><button type="button" class="closeBtn" data-close="eventDialog">×</button></div>
+  <label>Название<input id="eventTitle" required></label>
+  <label>Дата<input id="eventDate" type="date" required></label>
+  <div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div>
+  <label>Напомнить<select id="eventReminder"><option value="">Без напоминания</option><option value="0">В момент начала</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label>
+  <div id="eventRepeatSection">
+    <div class="fieldTitle">Повтор</div>
+    <select id="eventRepeat"><option value="">Не повторять</option><option value="weekly">Каждую неделю</option><option value="monthly">Каждый месяц</option><option value="yearly">Каждый год (день рождения и т.п.)</option></select>
+    <label id="eventRepeatUntilWrap" class="hidden">До какой даты (необязательно)<input id="eventRepeatUntil" type="date"></label>
+  </div>
+  <button class="primary" type="submit">Сохранить</button>
+</form></dialog>
+
+<dialog id="deleteSeriesDialog">
+  <div class="dlgBody">
+    <div class="dialogHead"><h2>Удалить событие</h2><button type="button" class="closeBtn" data-close="deleteSeriesDialog">×</button></div>
+    <p class="hint">Это событие повторяется. Что удалить?</p>
+    <div class="dialogActions"><button id="deleteOneBtn" class="secondary">Только это</button><button id="deleteSeriesBtn" class="danger">Всю серию</button></div>
+  </div>
+</dialog>
+
+<dialog id="simpleDialog"><form id="simpleForm">
+  <div class="dialogHead"><h2 id="simpleTitle">Добавить</h2><button type="button" class="closeBtn" data-close="simpleDialog">×</button></div>
+  <label>Название<input id="simpleInput" required></label>
+  <div id="taskScheduleFields" class="taskSchedule hidden">
+    <div class="fieldTitle">Время выполнения и напоминание</div>
+    <label>Дата<input id="taskDate" type="date"></label>
+    <label>Время<input id="taskTime" type="time"></label>
+    <label>Напомнить<select id="taskReminder"><option value="">Без напоминания</option><option value="0">В момент</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label>
+    <p class="hint">Для напоминания укажи дату и время. Без даты дело попадёт в «Без даты» в Организации.</p>
+  </div>
+  <button class="primary" type="submit">Сохранить</button>
+</form></dialog>
+
+<dialog id="settingsDialog"><form id="settingsForm">
+  <div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div>
+  <label>Название пространства<input id="spaceNameInput" required></label>
+  <div class="fieldTitle">Цвета участников</div>
+  <p class="hint">Цвета сохраняются только у вас и не синхронизируются с другими участниками.</p>
+  <div id="colorSettingsList" class="colorSettingsList"></div>
+  <div class="fieldTitle">Уведомления</div>
+  <p class="hint">Присылать сообщение в Telegram, когда партнёр что-то создаёт.</p>
+  <div class="checkList">
+    <label class="checkItem"><input type="checkbox" id="notifyEventToggle">Новые события</label>
+    <label class="checkItem"><input type="checkbox" id="notifyTaskToggle">Новые дела</label>
+    <label class="checkItem"><input type="checkbox" id="notifyShoppingToggle">Новые покупки</label>
+    <label class="checkItem"><input type="checkbox" id="notifyCompletedToggle">Выполненные дела и покупки</label>
+    <label class="checkItem"><input type="checkbox" id="notifyRemindersToggle">Напоминания по времени (дела и события)</label>
+  </div>
+  <button class="primary" type="submit">Сохранить</button>
+</form></dialog>
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="app.js?v=20260906"></script>
+<script src="app.js?v=20261027"></script>
 </body>
 </html>
