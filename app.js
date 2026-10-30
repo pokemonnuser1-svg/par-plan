@@ -20,6 +20,8 @@ let busy=false;
 let activeView="todayView";   // todayView | calendarView | orgView | profileView
 let lastMainView="todayView";
 let calendarMode="month";     // month | week | day | work
+let shopTab="list";             // list | cats | history — вкладки внутри «Покупок»
+let shopFilterGroup=null;       // показать только одну группу товаров
 let orgFilter="all";          // all | tasks | shopping | recurring
 let workViewFilter="all";     // all | mine | partner | overlap — подсветка в режиме "Рабочие дни"
 let pendingDeleteEventId=null;
@@ -48,12 +50,48 @@ const ICONS={
   briefcase:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18"/>',
   repeat:'<path d="M4 12a8 8 0 0 1 13.5-5.8L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.5 5.8L4 16M4 20v-4h4"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
-  palette:'<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1-.9-1.5-.9-2.5 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/>'
+  palette:'<path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1-.9-1.5-.9-2.5 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/>',
+  heart:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  star:'<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5l-5.4 3 1.2-6L3.3 9.3l6.1-.7z"/>',
+  dots:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  plane:'<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>'
 };
 function icon(name){
   return `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||""}</svg>`;
 }
 document.querySelectorAll("[data-icon]").forEach(el=>{el.innerHTML=icon(el.dataset.icon);});
+
+/* ---------- КАТЕГОРИИ ---------- */
+const CATS=[
+  {id:"work",name:"Работа",ic:"briefcase",color:"#3b82f6"},
+  {id:"home",name:"Дом",ic:"home",color:"#8b5cf6"},
+  {id:"health",name:"Здоровье",ic:"heart",color:"#ec4899"},
+  {id:"rest",name:"Отдых",ic:"sun",color:"#f59e0b"},
+  {id:"shopping",name:"Покупки",ic:"cart",color:"#19d3c5"},
+  {id:"important",name:"Важное",ic:"star",color:"#ef5b6b"},
+  {id:"other",name:"Другое",ic:"dots",color:"#8e97c0"}
+];
+/* ---------- ГРУППЫ ТОВАРОВ ---------- */
+const GROUPS=[
+  {id:"food",name:"Продукты",ic:"cart",color:"#19d3c5"},
+  {id:"home",name:"Для дома",ic:"home",color:"#8b5cf6"},
+  {id:"trip",name:"В поездку",ic:"plane",color:"#f59e0b"},
+  {id:"other",name:"Другое",ic:"dots",color:"#8e97c0"}
+];
+function groupOf(x){return GROUPS.find(g=>g.id===x?.group_name)||GROUPS[GROUPS.length-1];}
+const SHOP_GROUP_KEY="parplan_shop_group_v1";
+function lastShopGroup(){const v=localStorage.getItem(SHOP_GROUP_KEY);return GROUPS.some(g=>g.id===v)?v:"food";}
+function saveShopGroup(v){try{localStorage.setItem(SHOP_GROUP_KEY,v);}catch(_){}}
+// «Молоко 2 шт» -> название «Молоко», количество «2 шт»
+const QTY_RE=/^(.+?)\s+(\d+(?:[.,]\d+)?\s?(?:шт|кг|г|л|мл|уп|пач|пак|бут)\.?)$/i;
+function splitQty(text){const m=text.match(QTY_RE);return m?{title:m[1].trim(),quantity:m[2].trim()}:{title:text,quantity:""};}
+shopAddGroup.innerHTML=shopGroup.innerHTML=GROUPS.map(g=>`<option value="${g.id}">${g.name}</option>`).join("");
+shopAddGroup.value=lastShopGroup();
+
+function catOf(x){return CATS.find(c=>c.id===x?.category)||null;}
+function rgba(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
 
 /* ---------- УТИЛИТЫ ---------- */
 function localISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
@@ -178,45 +216,52 @@ function taskDateOf(t){return t.due_at?localISO(new Date(t.due_at)):null;}
 function checkbox(type,x){
   return `<input type="checkbox" class="rcheck" ${x.is_completed?"checked":""} data-toggle="${type}|${x.id}" aria-label="Выполнено">`;
 }
+// Для событий и дел редактирование и удаление теперь в окне деталей. Иконки остались только у покупок.
 function actionBtns(kind,x){
-  if(x.created_by!==me())return "";
-  if(kind==="event"){
-    return `<button class="iconAct" data-edit-event="${x.id}" aria-label="Изменить">${icon("edit")}</button><button class="iconAct danger" data-del-event="${x.id}" data-series="${x.series_id||""}" aria-label="Удалить">${icon("trash")}</button>`;
-  }
-  const t=kind==="task"?"tasks":"shopping";
-  return `<button class="iconAct" data-edit="${t}|${x.id}" aria-label="Изменить">${icon("edit")}</button><button class="iconAct danger" data-del="${t}|${x.id}" aria-label="Удалить">${icon("trash")}</button>`;
+  if(kind!=="shopping"||x.created_by!==me())return "";
+  return `<button class="iconAct" data-edit="shopping|${x.id}" aria-label="Изменить">${icon("edit")}</button><button class="iconAct del" data-del="shopping|${x.id}" aria-label="Удалить">${icon("trash")}</button>`;
 }
 // Карточка с временем слева (события и дела с датой)
 function timeCard(it,{showDate=false}={}){
-  const x=it.data,isTask=it.kind==="task";
+  const x=it.data,isTask=it.kind==="task",c=catOf(x);
   const sub=[];
   if(showDate)sub.push(dayLabel(it.date));
-  if(isTask)sub.push("Дело");
-  else{const d=durText(x.start_time,x.end_time);if(d)sub.push(d);}
+  if(c)sub.push(c.name);
+  else if(isTask)sub.push("Дело");
+  if(!isTask){const d=durText(x.start_time,x.end_time);if(d)sub.push(d);}
   if(x.reminder_minutes!==null&&x.reminder_minutes!==undefined)sub.push("🔔 "+reminderText(x.reminder_minutes));
-  return `<div class="timeCard k-${it.kind} ${x.is_completed?"done":""}">
-    <div class="tcTime">${it.time}</div><div class="tcBar"></div>
+  return `<div class="timeCard tappable k-${it.kind} ${x.is_completed?"done":""}" data-open-${it.kind}="${x.id}">
+    <div class="tcTime">${it.time}</div><div class="tcBar"${c?` style="background:${c.color}"`:""}></div>
     <div class="tcBody"><div class="tcTitle">${esc(x.title)}${x.series_id?` <span class="rep">${icon("repeat")}</span>`:""}</div><div class="tcSub">${esc(sub.join(" · "))}</div></div>
-    ${isTask?checkbox("tasks",x):""}${actionBtns(it.kind,x)}
+    ${isTask?checkbox("tasks",x):""}
   </div>`;
 }
 // Строка списка с иконкой (Организация, Сегодня)
-function itemRow(kind,x,{extra=""}={}){
+function itemRow(kind,x,{extra="",showGroup=false,plain=false}={}){
+  const c=kind==="shopping"?null:catOf(x);
   const sub=[];
+  if(c)sub.push(c.name);
   if(kind==="event"){
     sub.push(`${dayLabel(x.event_date)} · ${x.start_time.slice(0,5)}`);
   }else if(kind==="task"){
     if(x.due_at){const d=new Date(x.due_at);sub.push(`${dayLabel(localISO(d))} · ${hhmm(d)}`);}
     else sub.push("Без даты");
   }
+  if(kind==="shopping"){
+    if(showGroup)sub.push(groupOf(x).name);
+    if(x.quantity)sub.push(x.quantity);
+  }
   if(kind!=="shopping"&&x.reminder_minutes!==null&&x.reminder_minutes!==undefined)sub.push("🔔 "+reminderText(x.reminder_minutes));
   if(extra)sub.push(extra);
   const cls=kind==="event"?"ev":kind==="task"?"tk":"sh";
-  const ic=kind==="event"?"calendar":kind==="task"?"check":"cart";
+  const ic=c?c.ic:(kind==="event"?"calendar":kind==="task"?"check":"cart");
+  const tileStyle=c?` style="background:${rgba(c.color,.2)};color:${c.color}"`:"";
   const box=kind==="event"?"":checkbox(kind==="task"?"tasks":"shopping",x);
-  return `<div class="row ${x.is_completed?"done":""}">${box}<span class="ri ${cls}">${icon(ic)}</span>
+  const open=kind==="shopping"?"":` data-open-${kind}="${x.id}"`;
+  const chev=kind==="shopping"?"":`<span class="chev">${icon("chevron")}</span>`;
+  return `<div class="row ${x.is_completed&&!plain?"done":""}${open?" tappable":""}"${open}>${box}<span class="ri ${cls}"${tileStyle}>${icon(ic)}</span>
     <div class="rowBody"><div class="rowTitle">${esc(x.title)}${x.series_id?` <span class="rep">${icon("repeat")}</span>`:""}</div>${sub.length?`<div class="rowSub">${esc(sub.join(" · "))}</div>`:""}</div>
-    ${actionBtns(kind,x)}</div>`;
+    ${actionBtns(kind,x)}${chev}</div>`;
 }
 function block(title,rows){
   if(!rows.length)return "";
@@ -292,11 +337,11 @@ function renderCalendar(){
   const {mine,partner}=state?getWorkSets():{mine:new Set(),partner:new Set()};
   const evDates=new Set(state.events.map(e=>e.event_date));
   const taskDates=new Set(state.tasks.filter(t=>t.due_at&&!t.is_completed).map(t=>taskDateOf(t)));
-  const workAny=new Set([...mine,...partner]);
   const today=todayISO();
 
   calendar.innerHTML="";
-  for(let i=0;i<42;i++){
+  const weeks=Math.ceil((off+days)/7);
+  for(let i=0;i<weeks*7;i++){
     let d,dt,other=false;
     if(i<off){d=prev-off+i+1;dt=new Date(y,m-1,d);other=true;}
     else if(i>=off+days){d=i-off-days+1;dt=new Date(y,m+1,d);other=true;}
@@ -311,7 +356,7 @@ function renderCalendar(){
     if(calendarMode!=="work"){
       if(iso===selectedDate)b.classList.add("selected");
       if(iso===today)b.classList.add("today");
-      b.innerHTML=`<span>${d}</span><span class="dots">${evDates.has(iso)?'<i class="dot ev"></i>':""}${taskDates.has(iso)?'<i class="dot tk"></i>':""}${workAny.has(iso)?'<i class="dot wk"></i>':""}</span>`;
+      b.innerHTML=`<span>${d}</span><span class="dots">${evDates.has(iso)?'<i class="dot ev"></i>':""}${taskDates.has(iso)?'<i class="dot tk"></i>':""}</span>`;
       b.onclick=()=>{setSelected(iso);renderAll();};
     }else{
       const isMine=workDraft.has(iso);
@@ -418,7 +463,7 @@ function renderWeek(){
     const items=datedFor(iso).map(it=>{
       const x=it.data;
       const sub=it.kind==="event"?durText(x.start_time,x.end_time):"дело";
-      return `<button class="wkItem k-${it.kind} ${x.is_completed?"done":""}" data-open-${it.kind}="${x.id}"><span class="wkTime">${it.time}</span><span class="wkBar"></span><span class="wkTitle">${esc(x.title)}</span><span class="wkSub">${esc(sub)}</span></button>`;
+      return `<button class="wkItem k-${it.kind} ${x.is_completed?"done":""}" data-open-${it.kind}="${x.id}"><span class="wkTime">${it.time}</span><span class="wkBar"${catOf(x)?` style="background:${catOf(x).color}"`:""}></span><span class="wkTitle">${esc(x.title)}</span><span class="wkSub">${esc(sub)}</span></button>`;
     }).join("");
     return `<div class="weekDay ${iso===today?"isToday":""}"><button class="wdHead" data-goday="${iso}"><span>${wd}</span><b>${d.getDate()}</b></button><div class="wdItems">${items||`<div class="wdEmpty">Свободно</div>`}</div></div>`;
   }).join("");
@@ -460,14 +505,14 @@ function scheduleItemsForDay(iso){
     if(e.event_date!==iso)continue;
     const start=timeToMinutes(e.start_time),end=timeToMinutes(e.end_time);
     if(start===null||end===null)continue;
-    items.push({id:e.id,kind:"event",title:e.title,start,end:Math.max(end,start+20)});
+    items.push({id:e.id,kind:"event",title:e.title,start,end:Math.max(end,start+20),category:e.category});
   }
   for(const t of state.tasks){
     if(!t.due_at||t.is_completed)continue;
     const dt=new Date(t.due_at);
     if(localISO(dt)!==iso)continue;
     const start=dt.getHours()*60+dt.getMinutes();
-    items.push({id:t.id,kind:"task",title:t.title,start,end:start+30});
+    items.push({id:t.id,kind:"task",title:t.title,start,end:start+30,category:t.category});
   }
   return items;
 }
@@ -485,7 +530,7 @@ function renderSchedule(){
     const widthPct=100/it.colCount,leftPct=widthPct*it.col;
     const timeLabel=`${String(Math.floor(it.start/60)).padStart(2,"0")}:${String(it.start%60).padStart(2,"0")}`;
     const compact=h<SCHEDULE_MIN_BLOCK_PX+8;
-    return `<div class="scheduleBlock k-${it.kind}" data-open-${it.kind}="${it.id}" style="top:${top}px;height:${h}px;left:${leftPct}%;width:calc(${widthPct}% - 2px)"><b>${esc(it.title)}</b>${compact?"":timeLabel}</div>`;
+    return `<div class="scheduleBlock k-${it.kind}" data-open-${it.kind}="${it.id}" style="top:${top}px;height:${h}px;left:${leftPct}%;width:calc(${widthPct}% - 2px)${catOf(it)?`;background:${catOf(it).color}`:""}"><b>${esc(it.title)}</b>${compact?"":timeLabel}</div>`;
   }).join("");
   const nowLine=iso===todayIso?`<div class="scheduleNow" style="top:${(nowMin/60)*SCHEDULE_HOUR_PX}px"></div>`:"";
   const rows=Array.from({length:24},()=>`<div class="scheduleHourRow"></div>`).join("");
@@ -598,7 +643,7 @@ function renderCalendarView(){
 /* ---------- ОРГАНИЗАЦИЯ ---------- */
 function renderOrg(){
   document.querySelectorAll(".orgChip").forEach(b=>b.classList.toggle("active",b.dataset.ofilter===orgFilter));
-  shopAddRow.classList.toggle("hidden",orgFilter!=="shopping");
+  shopAddRow.classList.toggle("hidden",orgFilter!=="shopping"||shopTab!=="list");
   const today=todayISO();
   let html="";
 
@@ -619,17 +664,13 @@ function renderOrg(){
     }else{
       const open=state.shopping.filter(s=>!s.is_completed);
       if(open.length){
-        html+=block("Покупки",open.slice(0,4).map(s=>itemRow("shopping",s)));
+        html+=block("Покупки",open.slice(0,4).map(s=>itemRow("shopping",s,{showGroup:true})));
         if(open.length>4)html+=`<button class="linkBtn wide" data-ofilter-go="shopping">Показать все (${open.length}) ›</button>`;
       }
     }
   }
 
-  if(orgFilter==="shopping"){
-    const sorted=[...state.shopping].sort((a,b)=>Number(!!a.is_completed)-Number(!!b.is_completed));
-    html=block("Список",sorted.map(s=>itemRow("shopping",s)));
-    if(!html)html=`<div class="empty">Список покупок пуст</div>`;
-  }
+  if(orgFilter==="shopping")html=renderShopping();
 
   if(orgFilter==="recurring"){
     const bySeries=new Map();
@@ -648,6 +689,44 @@ function renderOrg(){
   }
 
   orgContent.innerHTML=html||`<div class="empty">Пока ничего нет</div>`;
+}
+
+/* ---------- ПОКУПКИ: Список / Категории / История ---------- */
+function renderShopping(){
+  const tabs=[["list","Список"],["cats","Категории"],["history","История"]];
+  const tabBar=`<div class="seg">${tabs.map(([id,t])=>`<button class="segBtn ${shopTab===id?"active":""}" data-shoptab="${id}">${t}</button>`).join("")}</div>`;
+  const open=state.shopping.filter(s=>!s.is_completed);
+  let body="";
+
+  if(shopTab==="list"){
+    const parts=GROUPS.filter(g=>!shopFilterGroup||g.id===shopFilterGroup)
+      .map(g=>({g,items:open.filter(s=>groupOf(s).id===g.id)}))
+      .filter(p=>shopFilterGroup||p.items.length);
+    const filterBar=shopFilterGroup?`<button class="linkBtn wide" data-shop-clear>Показать все группы ✕</button>`:"";
+    body=filterBar+parts.map(({g,items})=>`<div class="secHead"><h3>${g.name}</h3><span class="secCount">${items.length}</span></div><div class="list">${items.length?items.map(s=>itemRow("shopping",s)).join(""):`<div class="empty">В этой группе пусто</div>`}</div>`).join("");
+    if(!parts.length)body=`<div class="empty">Список покупок пуст</div>`;
+  }else if(shopTab==="cats"){
+    body=`<div class="shopTiles">${GROUPS.map(g=>{
+      const n=open.filter(s=>groupOf(s).id===g.id).length;
+      return `<button class="shopTile" data-shopgroup="${g.id}" style="--c:${g.color};--bg:${rgba(g.color,.2)}"><span class="catIc">${icon(g.ic)}</span><b>${g.name}</b><small>${n?`${n} в списке`:"Пусто"}</small></button>`;
+    }).join("")}</div>`;
+  }else{
+    const done=state.shopping.filter(s=>s.is_completed)
+      .sort((a,b)=>String(b.completed_at||"").localeCompare(String(a.completed_at||""))).slice(0,60);
+    if(!done.length){
+      body=`<div class="empty">История пуста: купленные товары появятся здесь</div>`;
+    }else{
+      const byDay=new Map();
+      for(const s of done){
+        const key=s.completed_at?localISO(new Date(s.completed_at)):"";
+        if(!byDay.has(key))byDay.set(key,[]);
+        byDay.get(key).push(s);
+      }
+      body=[...byDay].map(([day,items])=>block(day?dayLabel(day):"Раньше",items.map(s=>itemRow("shopping",s,{showGroup:true,plain:true})))).join("")
+        +`<button class="linkBtn wide" data-shop-clear-history>Очистить историю</button>`;
+    }
+  }
+  return tabBar+body;
 }
 
 /* ---------- ПРОФИЛЬ ---------- */
@@ -679,6 +758,7 @@ function renderAll(){
   else if(activeView==="profileView")renderProfile();
   updateFab();
   bind();
+  if(detailDialog.hasAttribute("open"))refreshDetail();
 }
 
 function showView(view){
@@ -704,24 +784,15 @@ function bind(){
     const item=(t==="tasks"?state.tasks:state.shopping).find(x=>x.id===id);
     if(item)openSimple(t,t==="tasks"?"Дело":"Покупка",item);
   });
-  document.querySelectorAll("[data-edit-event]").forEach(b=>b.onclick=()=>{
-    const item=state.events.find(x=>x.id===b.dataset.editEvent);
-    if(item)openEventDialog(item);
-  });
-  document.querySelectorAll("[data-del-event]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.delEvent,seriesId=b.dataset.series;
-    if(seriesId){pendingDeleteEventId=id;deleteSeriesDialog.showModal();}
-    else act("delete_event",{id});
-  });
   document.querySelectorAll("[data-extend-series]").forEach(b=>b.onclick=()=>act("extend_series",{series_id:b.dataset.extendSeries}));
-  // Нажатие на запись в «Неделе» и «Дне» — открыть редактирование (только для автора записи)
-  document.querySelectorAll("[data-open-event]").forEach(b=>b.onclick=()=>{
-    const e=state.events.find(x=>x.id===b.dataset.openEvent);
-    if(e&&e.created_by===me())openEventDialog(e);
+  // Нажатие на событие или дело (карточка, неделя, день) открывает окно деталей
+  document.querySelectorAll("[data-open-event]").forEach(b=>b.onclick=ev=>{
+    if(ev.target.closest("input,button.iconAct"))return;
+    openDetail("event",b.dataset.openEvent);
   });
-  document.querySelectorAll("[data-open-task]").forEach(b=>b.onclick=()=>{
-    const t=state.tasks.find(x=>x.id===b.dataset.openTask);
-    if(t&&t.created_by===me())openSimple("tasks","Дело",t);
+  document.querySelectorAll("[data-open-task]").forEach(b=>b.onclick=ev=>{
+    if(ev.target.closest("input,button.iconAct"))return;
+    openDetail("task",b.dataset.openTask);
   });
 }
 
@@ -730,7 +801,7 @@ document.addEventListener("click",e=>{
   const go=e.target.closest("[data-go]");
   if(go){
     const [view,arg]=go.dataset.go.split("|");
-    if(view==="orgView"&&arg)orgFilter=arg;
+    if(view==="orgView"&&arg){orgFilter=arg;if(arg==="shopping"){shopTab="list";shopFilterGroup=null;}}
     if(view==="calendarView"){
       if(!leaveWorkGuard())return;
       if(arg){calendarMode=arg;setSelected(todayISO());}
@@ -741,7 +812,16 @@ document.addEventListener("click",e=>{
   const gd=e.target.closest("[data-goday]");
   if(gd){setSelected(gd.dataset.goday);calendarMode="day";scheduleShouldAutoscroll=true;renderAll();return;}
   const og=e.target.closest("[data-ofilter-go]");
-  if(og){orgFilter=og.dataset.ofilterGo;renderAll();return;}
+  if(og){orgFilter=og.dataset.ofilterGo;if(orgFilter==="shopping"){shopTab="list";shopFilterGroup=null;}renderAll();return;}
+  const st=e.target.closest("[data-shoptab]");
+  if(st){shopTab=st.dataset.shoptab;if(shopTab==="list")shopFilterGroup=null;renderAll();return;}
+  const sg=e.target.closest("[data-shopgroup]");
+  if(sg){shopFilterGroup=sg.dataset.shopgroup;shopTab="list";renderAll();return;}
+  if(e.target.closest("[data-shop-clear]")){shopFilterGroup=null;renderAll();return;}
+  if(e.target.closest("[data-shop-clear-history]")){
+    if(confirm("Очистить историю? Все купленные товары будут удалены."))act("clear_shopping_history");
+    return;
+  }
 });
 
 document.querySelectorAll(".navItem").forEach(b=>b.onclick=()=>{
@@ -788,14 +868,27 @@ addTypeEventBtn.onclick=()=>{addTypeDialog.close();openEventDialog(null,ctxDate(
 addTypeTaskBtn.onclick=()=>{addTypeDialog.close();openSimple("tasks","Новое дело",null,ctxDate());};
 addTypeShopBtn.onclick=()=>{addTypeDialog.close();openSimple("shopping","Новая покупка");};
 
-function openEventDialog(existing,defaultDate){
+function remVal(x){return x&&x.reminder_minutes!==null&&x.reminder_minutes!==undefined?String(x.reminder_minutes):"";}
+let eventCat=null,taskCat=null;
+function renderCats(box,current,onPick){
+  box.innerHTML=CATS.map(c=>`<button type="button" class="catBtn ${c.id===current?"active":""}" data-cat="${c.id}" style="--c:${c.color};--bg:${rgba(c.color,.2)}"><span class="catIc">${icon(c.ic)}</span><span>${c.name}</span></button>`).join("");
+  box.querySelectorAll(".catBtn").forEach(b=>b.onclick=()=>onPick(b.dataset.cat===current?null:b.dataset.cat));
+}
+function setEventCat(v){eventCat=v;renderCats(eventCats,eventCat,setEventCat);}
+function setTaskCat(v){taskCat=v;renderCats(taskCats,taskCat,setTaskCat);}
+
+// existing — редактирование; prefill — «Дублировать» (форма создания, заполненная данными записи)
+function openEventDialog(existing,defaultDate,prefill){
+  const src=existing||prefill||null;
   editingEventId=existing?existing.id:null;
   eventDialogTitle.textContent=existing?"Событие":"Новое событие";
-  eventTitle.value=existing?existing.title:"";
+  eventTitle.value=src?src.title:"";
   eventDate.value=existing?existing.event_date:(defaultDate||selectedDate);
-  eventStart.value=existing?existing.start_time.slice(0,5):"";
-  eventEnd.value=existing?existing.end_time.slice(0,5):"";
-  eventReminder.value=existing?.reminder_minutes!==null&&existing?.reminder_minutes!==undefined?String(existing.reminder_minutes):"";
+  eventStart.value=src?src.start_time.slice(0,5):"";
+  eventEnd.value=src?src.end_time.slice(0,5):"";
+  eventReminder.value=remVal(src);
+  eventDesc.value=src?.description||"";
+  setEventCat(src?.category||null);
   eventRepeat.value="";
   eventRepeatUntil.value="";
   eventRepeatUntilWrap.classList.add("hidden");
@@ -807,7 +900,7 @@ eventRepeat.onchange=()=>{eventRepeatUntilWrap.classList.toggle("hidden",!eventR
 eventForm.onsubmit=async e=>{
   e.preventDefault();
   if(eventEnd.value<=eventStart.value)return alert("Проверь время.");
-  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,reminder_minutes:eventReminder.value===""?null:Number(eventReminder.value)};
+  const payload={title:eventTitle.value.trim(),event_date:eventDate.value,start_time:eventStart.value,end_time:eventEnd.value,reminder_minutes:eventReminder.value===""?null:Number(eventReminder.value),category:eventCat,description:eventDesc.value.trim()};
   if(editingEventId){
     payload.id=editingEventId;
     await act("update_event",payload);
@@ -824,21 +917,26 @@ eventForm.onsubmit=async e=>{
   renderAll();
 };
 
-function openSimple(mode,title,existing,defaultDate){
+function openSimple(mode,title,existing,defaultDate,prefill){
+  const src=existing||prefill||null;
   simpleMode=mode;
   editingSimpleId=existing?existing.id:null;
   simpleTitle.textContent=title;
-  simpleInput.value=existing?existing.title:"";
+  simpleInput.value=src?src.title:"";
   taskScheduleFields.classList.toggle("hidden",mode!=="tasks");
-  if(mode==="tasks"&&existing?.due_at){
-    const d=new Date(existing.due_at);
+  taskExtraFields.classList.toggle("hidden",mode!=="tasks");
+  shopExtraFields.classList.toggle("hidden",mode!=="shopping");
+  if(mode==="shopping"){shopQty.value=src?.quantity||"";shopGroup.value=src?groupOf(src).id:lastShopGroup();}
+  if(mode==="tasks"){setTaskCat(src?.category||null);taskDesc.value=src?.description||"";}
+  if(mode==="tasks"&&src?.due_at){
+    const d=new Date(src.due_at);
     taskDate.value=localISO(d);
     taskTime.value=hhmm(d);
   }else{
-    taskDate.value=existing?"":(defaultDate||"");
+    taskDate.value=src?"":(defaultDate||"");
     taskTime.value="";
   }
-  taskReminder.value=existing?.reminder_minutes!==null&&existing?.reminder_minutes!==undefined?String(existing.reminder_minutes):"";
+  taskReminder.value=remVal(src);
   simpleDialog.showModal();
 }
 simpleForm.onsubmit=async e=>{
@@ -851,12 +949,19 @@ simpleForm.onsubmit=async e=>{
     payload.due_date=dueDate||null;
     payload.due_time=dueTime||null;
     payload.reminder_minutes=reminder===""?null:Number(reminder);
+    payload.category=taskCat;
+    payload.description=taskDesc.value.trim();
     if(dueDate&&dueTime){
       // Храним момент в UTC, чтобы reminder-worker корректно сравнивал его с Date.now().
       const local=new Date(`${dueDate}T${dueTime}:00`);
       if(Number.isNaN(local.getTime()))return alert("Некорректная дата или время.");
       payload.due_at=local.toISOString();
     }else payload.due_at=null;
+  }
+  if(simpleMode==="shopping"){
+    payload.quantity=shopQty.value.trim();
+    payload.group=shopGroup.value;
+    saveShopGroup(shopGroup.value);
   }
   const action=editingSimpleId?(simpleMode==="tasks"?"update_task":"update_shopping"):(simpleMode==="tasks"?"create_task":"create_shopping");
   await act(action,payload);
@@ -867,10 +972,13 @@ simpleForm.onsubmit=async e=>{
 // Быстрое добавление покупки в списке
 shopAddRow.onsubmit=async e=>{
   e.preventDefault();
-  const title=shopAddInput.value.trim();
-  if(!title)return;
+  const raw=shopAddInput.value.trim();
+  if(!raw)return;
+  const {title,quantity}=splitQty(raw);
+  const group=shopAddGroup.value;
+  saveShopGroup(group);
   shopAddInput.value="";
-  await act("create_shopping",{title});
+  await act("create_shopping",{title,quantity,group});
 };
 
 deleteOneBtn.onclick=async()=>{
@@ -885,6 +993,71 @@ deleteSeriesBtn.onclick=async()=>{
 };
 
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).close());
+
+/* ---------- ДЕТАЛИ ---------- */
+let detailRef=null;
+function detailItem(){
+  if(!detailRef)return null;
+  return (detailRef.kind==="event"?state.events:state.tasks).find(i=>i.id===detailRef.id)||null;
+}
+function openDetail(kind,id){
+  detailRef={kind,id};
+  if(!detailItem())return;
+  renderDetail();
+  detailDialog.showModal();
+}
+function refreshDetail(){
+  if(!detailItem()){detailDialog.close();return;}
+  renderDetail();
+}
+function renderDetail(){
+  const x=detailItem(),kind=detailRef.kind,c=catOf(x),mine=x.created_by===me();
+  const tags=[`<span class="tag">${kind==="event"?"План":"Дело"}</span>`,`<span class="tag shared">Общее</span>`];
+  if(c)tags.push(`<span class="tag" style="background:${rgba(c.color,.2)};color:${c.color}">${esc(c.name)}</span>`);
+  detailTags.innerHTML=tags.join("");
+  detailTitle.textContent=x.title;
+  const dfmt=d=>cap(new Intl.DateTimeFormat("ru-RU",{weekday:"short",day:"numeric",month:"long"}).format(d));
+  if(kind==="event")detailWhen.textContent=`${dfmt(new Date(x.event_date+"T12:00:00"))} · ${x.start_time.slice(0,5)} – ${x.end_time.slice(0,5)}`;
+  else if(x.due_at){const d=new Date(x.due_at);detailWhen.textContent=`${dfmt(d)} · ${hhmm(d)}`;}
+  else detailWhen.textContent="Без даты";
+  detailDesc.textContent=x.description||"";
+  detailDesc.classList.toggle("hidden",!x.description);
+  const creator=member(x.created_by);
+  const rows=[["bell","Напоминание",x.reminder_minutes!==null&&x.reminder_minutes!==undefined?reminderText(x.reminder_minutes):"Нет"]];
+  if(kind==="event")rows.push(["repeat","Повтор",x.series_id?"Повторяется (серия)":"Не повторяется"]);
+  rows.push(["palette","Категория",c?c.name:"Без категории"]);
+  rows.push(["user","Создал(а)",creator?creator.display_name+(creator.id===me()?" (вы)":""):"—"]);
+  detailRows.innerHTML=rows.map(([ic,l,v])=>`<div class="dRow"><span class="mIc">${icon(ic)}</span><div><div class="dLabel">${l}</div><div class="dVal">${esc(v)}</div></div></div>`).join("");
+  detailDone.classList.toggle("hidden",kind!=="task");
+  if(kind==="task")detailDoneLabel.textContent=x.is_completed?"Вернуть в работу":"Отметить выполненным";
+  detailEdit.classList.toggle("hidden",!mine);
+  detailDel.classList.toggle("hidden",!mine);
+}
+detailEdit.onclick=()=>{
+  const x=detailItem();if(!x)return;
+  const kind=detailRef.kind;
+  detailDialog.close();
+  if(kind==="event")openEventDialog(x);else openSimple("tasks","Дело",x);
+};
+detailDup.onclick=()=>{
+  const x=detailItem();if(!x)return;
+  const kind=detailRef.kind;
+  detailDialog.close();
+  if(kind==="event")openEventDialog(null,x.event_date,x);
+  else openSimple("tasks","Новое дело",null,"",x);
+};
+detailDel.onclick=()=>{
+  const x=detailItem();if(!x)return;
+  const kind=detailRef.kind;
+  if(kind==="event"&&x.series_id){detailDialog.close();pendingDeleteEventId=x.id;deleteSeriesDialog.showModal();return;}
+  if(!confirm(`Удалить «${x.title}»?`))return;
+  detailDialog.close();
+  act(kind==="event"?"delete_event":"delete_task",{id:x.id});
+};
+detailDone.onclick=()=>{
+  const x=detailItem();if(!x||detailRef.kind!=="task")return;
+  act("toggle_task",{id:x.id,is_completed:!x.is_completed});
+};
 
 /* ---------- ПРИГЛАШЕНИЕ, НАСТРОЙКИ ---------- */
 inviteBtn.onclick=async()=>{

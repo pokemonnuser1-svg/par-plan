@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f24">
 <title>ParPlan</title>
-<link rel="stylesheet" href="style.css?v=20261027">
+<link rel="stylesheet" href="style.css?v=20261030">
 </head>
 <body>
 <div class="app">
@@ -68,7 +68,6 @@
       <div id="monthLegend" class="legendRow">
         <span><i class="legendDot ev"></i>События</span>
         <span><i class="legendDot tk"></i>Задачи</span>
-        <span><i class="legendDot wk"></i>Рабочие дни</span>
       </div>
       <div id="workLegend" class="legendRow hidden">
         <span><i class="legendDot mine"></i>Вы</span>
@@ -141,6 +140,7 @@
       <button class="orgChip" data-ofilter="recurring">Повторяющиеся</button>
     </div>
     <form id="shopAddRow" class="addRow hidden">
+      <select id="shopAddGroup" aria-label="Группа"></select>
       <input id="shopAddInput" placeholder="Добавить товар…" autocomplete="off">
       <button class="addBtn" type="submit" data-icon="plus" aria-label="Добавить"></button>
     </form>
@@ -210,6 +210,9 @@
   <label>Дата<input id="eventDate" type="date" required></label>
   <div class="twoCols"><label>Начало<input id="eventStart" type="time" required></label><label>Конец<input id="eventEnd" type="time" required></label></div>
   <label>Напомнить<select id="eventReminder"><option value="">Без напоминания</option><option value="0">В момент начала</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label>
+  <div class="fieldTitle">Категория</div>
+  <div id="eventCats" class="catGrid"></div>
+  <label>Описание<textarea id="eventDesc" rows="3" maxlength="1000" placeholder="Необязательно"></textarea></label>
   <div id="eventRepeatSection">
     <div class="fieldTitle">Повтор</div>
     <select id="eventRepeat"><option value="">Не повторять</option><option value="weekly">Каждую неделю</option><option value="monthly">Каждый месяц</option><option value="yearly">Каждый год (день рождения и т.п.)</option></select>
@@ -236,8 +239,33 @@
     <label>Напомнить<select id="taskReminder"><option value="">Без напоминания</option><option value="0">В момент</option><option value="5">За 5 минут</option><option value="15">За 15 минут</option><option value="30">За 30 минут</option><option value="60">За 1 час</option><option value="120">За 2 часа</option><option value="1440">За 1 день</option></select></label>
     <p class="hint">Для напоминания укажи дату и время. Без даты дело попадёт в «Без даты» в Организации.</p>
   </div>
+  <div id="taskExtraFields" class="hidden">
+    <div class="fieldTitle">Категория</div>
+    <div id="taskCats" class="catGrid"></div>
+    <label>Описание<textarea id="taskDesc" rows="3" maxlength="1000" placeholder="Необязательно"></textarea></label>
+  </div>
+  <div id="shopExtraFields" class="hidden">
+    <label>Количество<input id="shopQty" placeholder="Например: 2 шт." maxlength="40" autocomplete="off"></label>
+    <label>Группа<select id="shopGroup"></select></label>
+  </div>
   <button class="primary" type="submit">Сохранить</button>
 </form></dialog>
+
+<dialog id="detailDialog">
+  <div class="dlgBody">
+    <div class="dialogHead"><div id="detailTags" class="tags"></div><button type="button" class="closeBtn" data-close="detailDialog">×</button></div>
+    <h2 id="detailTitle" class="detailTitle"></h2>
+    <div id="detailWhen" class="detailWhen"></div>
+    <p id="detailDesc" class="detailDesc hidden"></p>
+    <div id="detailRows" class="detailRows"></div>
+    <button id="detailDone" class="primary hidden"><span id="detailDoneLabel">Отметить выполненным</span></button>
+    <div class="detailActions">
+      <button id="detailEdit" class="dAct"><span data-icon="edit"></span>Редактировать</button>
+      <button id="detailDup" class="dAct"><span data-icon="copy"></span>Дублировать</button>
+      <button id="detailDel" class="dAct del"><span data-icon="trash"></span>Удалить</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="settingsDialog"><form id="settingsForm">
   <div class="dialogHead"><h2>Настройки</h2><button type="button" class="closeBtn" data-close="settingsDialog">×</button></div>
@@ -258,6 +286,6 @@
 </form></dialog>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="app.js?v=20261027"></script>
+<script src="app.js?v=20261030"></script>
 </body>
 </html>
